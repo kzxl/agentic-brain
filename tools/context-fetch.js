@@ -30,19 +30,24 @@ Example:
 const projectInfo = getProjectInfo(process.cwd());
 const projectName = projectInfo.projectName;
 
-// 2. Resolve tags
+// 2. Resolve tags (via System 1 In-Process Decision Engine)
+const { decideRoute } = require('./route-decision');
+const routeResult = decideRoute(taskDesc, { cwd: process.cwd() });
+
 const customTagsArg = process.argv.find(a => a.startsWith('--tags='));
 const customTags = customTagsArg ? customTagsArg.split('=')[1].split(',').map(t => t.trim()).filter(Boolean) : [];
 
 const tagSet = new Set();
 if (projectInfo.domain) tagSet.add(projectInfo.domain);
 for (const t of inferTechTags(process.cwd())) tagSet.add(t);
+for (const t of routeResult.decision.suggested_tags) tagSet.add(t);
 for (const t of customTags) tagSet.add(t);
 
 // Fallback tag if empty
 if (tagSet.size === 0) tagSet.add('general');
 
 const combinedTags = Array.from(tagSet).join(',');
+
 
 // 3. Assemble arguments for find-qa-context.js
 const targetScript = path.join(__dirname, 'find-qa-context.js');
@@ -59,7 +64,7 @@ for (const arg of process.argv.slice(2)) {
   forwardedArgs.push(arg);
 }
 
-console.log(`[CONTEXT-FETCH] Project: ${projectName} | Tags: [${combinedTags}]`);
+console.log(`[CONTEXT-FETCH] Project: ${projectName} | Mode: ${routeResult.decision.execution_mode} (Risk: ${routeResult.decision.risk_level}/5) | Tags: [${combinedTags}]`);
 
 // 4. Execute find-qa-context.js
 const result = spawnSync('node', [targetScript, ...forwardedArgs], {
