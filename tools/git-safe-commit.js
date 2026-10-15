@@ -9,7 +9,8 @@
  *   node E:\Tools\SemanticBrain\tools\git-safe-commit.js -m "chore: update rules" --allow-config .project-rule.md
  */
 
-const { execSync, spawnSync } = require('child_process');
+const { execSync, execFileSync, spawnSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 const PROTECTED_FILES = [
@@ -141,12 +142,24 @@ if (stagedFiles.length > 15) {
   console.log(`  Per R_GIT, please ensure this is an atomic commit and not a bundle of unrelated features.`);
 }
 
+// 6. Automatic Pre-Commit Framework Quality Gate
+const validatorPath = path.join(process.cwd(), 'tools', 'validate-framework.js');
+if (fs.existsSync(validatorPath)) {
+  console.log(`[GIT-GUARD] Running pre-commit framework quality gate: ${validatorPath}`);
+  try {
+    execFileSync(process.execPath, [validatorPath], { stdio: 'inherit' });
+  } catch {
+    console.error(`[GIT-GUARD: BLOCKED] Pre-commit framework validation failed. Commit aborted.`);
+    process.exit(1);
+  }
+}
+
 if (dryRun) {
   console.log(`[GIT-GUARD] DRY-RUN completed successfully. Commit not executed.`);
   process.exit(0);
 }
 
-// 6. Execute commit
+// 7. Execute commit
 console.log(`[GIT-GUARD] Executing atomic commit: "${message}"`);
 const commitResult = spawnSync('git', ['commit', '-m', message], { stdio: 'inherit' });
 process.exit(commitResult.status ?? 0);
