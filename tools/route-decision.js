@@ -120,13 +120,40 @@ function evaluateDeadLoop(taskText, project) {
   };
 }
 
-// 5. Match Rules & Shortcuts (Choice Primitive)
+// 5. Match Rules, Shortcuts & Agent Personas (Choice Primitive)
+const RULE_TO_PATH_SEGMENTS = {
+  R_RUST: ['standards/rust/', 'skills/rust/', 'rust'],
+  R_PY: ['standards/python/', 'skills/python/', 'python'],
+  R_GO: ['standards/golang/', 'golang'],
+  R_PHP: ['standards/php/', 'php'],
+  R_REACT: ['standards/react/', 'skills/react/', 'react'],
+  R_NODE: ['standards/nodejs/', 'skills/nodejs/', 'nodejs'],
+  R_CPP: ['standards/cpp/', 'cpp', 'interop'],
+  R_EMBEDDED: ['standards/embedded/', 'skills/embedded/', 'embedded', 'rtos', 'firmware'],
+  R_GODOT: ['godot', 'skills/game/'],
+  R_GAME: ['skills/game/', 'game'],
+  R_ANDROID: ['standards/android/', 'android'],
+  R_CS: ['standards/csharp/', 'skills/csharp/', 'csharp'],
+  R_WPF: ['standards/csharp/wpf', 'standards/csharp/winforms', 'baseform'],
+  R_API: ['standards/csharp/webapi', 'folder-per-feature'],
+  R_DB: ['standards/database/', 'skills/database/', 'sql'],
+  R_UI: ['ui-design-system', 'standards/universal/ui-'],
+  R_TEAM: ['multi-agent-teamwork', 'multi-agent'],
+  R_PENTEST: ['skills/pentest/', 'security-pentest'],
+  R_REVERSE: ['skills/reversing/', 'reverse-engineering'],
+  R_RESEARCH: ['skills/research/', 'scientific-research'],
+  R_DOMAIN_INV: ['standards/erp/inventory', 'inventory-domain'],
+  R_DOMAIN_PROD: ['standards/erp/production', 'production-lot'],
+  R_DOMAIN_SALES: ['standards/erp/sales']
+};
+
 function matchRulesAndShortcuts(taskText, techTags, agentRoot) {
   const matchedRules = [];
   const matchedSkills = [];
+  const matchedAgents = [];
 
   if (!agentRoot) {
-    return { rules: [], skills: [] };
+    return { rules: [], skills: [], agents: [] };
   }
 
   const rulesMap = JSON.parse(fs.readFileSync(path.join(agentRoot, 'rules.json'), 'utf8'));
@@ -135,7 +162,7 @@ function matchRulesAndShortcuts(taskText, techTags, agentRoot) {
   const taskTokens = tokenize(taskText);
   const combinedTokens = new Set([...taskTokens, ...techTags]);
 
-  // A. Score Rules
+  // A. Score Rules across all 13 stacks + domains
   for (const [ruleKey, desc] of Object.entries(rulesMap)) {
     const descTokens = tokenize(desc);
     let matchScore = 0;
@@ -144,12 +171,34 @@ function matchRulesAndShortcuts(taskText, techTags, agentRoot) {
       if (descTokens.includes(t)) matchScore += 1;
     }
 
-    // Technology Tag Boost
-    const rk = ruleKey.toLowerCase();
-    if (techTags.includes('wpf') && rk.includes('wpf')) matchScore += 3;
-    if (techTags.includes('winforms') && (rk.includes('wpf') || rk.includes('winform'))) matchScore += 3;
-    if (techTags.includes('webapi') && rk.includes('api')) matchScore += 3;
-    if (techTags.includes('sql') && rk.includes('db')) matchScore += 3;
+    // Technology Tag & Stack Boost
+    const rk = ruleKey.toUpperCase();
+    if (techTags.includes('wpf') && rk === 'R_WPF') matchScore += 4;
+    if (techTags.includes('winforms') && (rk === 'R_WPF' || rk === 'R_CS')) matchScore += 3;
+    if ((techTags.includes('webapi') || techTags.includes('api')) && rk === 'R_API') matchScore += 3;
+    if (techTags.includes('csharp') && rk === 'R_CS') matchScore += 3;
+    if (techTags.includes('sql') && rk === 'R_DB') matchScore += 3;
+    if (techTags.includes('rust') && rk === 'R_RUST') matchScore += 4;
+    if (techTags.includes('python') && rk === 'R_PY') matchScore += 4;
+    if (techTags.includes('golang') && rk === 'R_GO') matchScore += 4;
+    if (techTags.includes('php') && rk === 'R_PHP') matchScore += 4;
+    if (techTags.includes('react') && rk === 'R_REACT') matchScore += 4;
+    if (techTags.includes('nodejs') && rk === 'R_NODE') matchScore += 4;
+    if (techTags.includes('cpp') && rk === 'R_CPP') matchScore += 4;
+    if (techTags.includes('embedded') && rk === 'R_EMBEDDED') matchScore += 4;
+    if (techTags.includes('godot') && (rk === 'R_GODOT' || rk === 'R_GAME')) matchScore += 4;
+    if (techTags.includes('game') && rk === 'R_GAME') matchScore += 3;
+    if (techTags.includes('android') && rk === 'R_ANDROID') matchScore += 4;
+    if ((techTags.includes('teamwork') || techTags.includes('multi-agent')) && rk === 'R_TEAM') matchScore += 4;
+    if (techTags.includes('ui') && rk === 'R_UI') matchScore += 3;
+    if (techTags.includes('reversing') && rk === 'R_REVERSE') matchScore += 4;
+    if ((techTags.includes('pentest') || techTags.includes('security')) && (rk === 'R_PENTEST' || rk === 'R_SEC' || rk === 'R_SEC_STD')) matchScore += 3;
+    if (techTags.includes('inventory') && rk === 'R_DOMAIN_INV') matchScore += 4;
+    if (techTags.includes('production') && rk === 'R_DOMAIN_PROD') matchScore += 4;
+    if (techTags.includes('sales') && rk === 'R_DOMAIN_SALES') matchScore += 4;
+    if (techTags.includes('refactor') && rk === 'R_NEV') matchScore += 3;
+    if (techTags.includes('perf') && (rk === 'R_PERF' || rk === 'R_BENCH')) matchScore += 3;
+    if ((techTags.includes('test') || techTags.includes('unit-test')) && rk === 'R_TDD') matchScore += 3;
 
     if (matchScore > 0) {
       matchedRules.push({
@@ -160,9 +209,13 @@ function matchRulesAndShortcuts(taskText, techTags, agentRoot) {
     }
   }
 
-  // B. Score Shortcuts / Skills
+  matchedRules.sort((a, b) => b.score - a.score);
+  const topRules = matchedRules.slice(0, 4);
+
+  // B. Score Shortcuts / Skills & Agent Personas using target path segments
   for (const [sKey, sVal] of Object.entries(shortcutsMap)) {
-    const sDescTokens = tokenize(sVal.desc || '');
+    const targetNorm = String(sVal.target || '').replace(/\\/g, '/').toLowerCase();
+    const sDescTokens = tokenize(`${sVal.name || ''} ${sVal.desc || ''} ${targetNorm}`);
     let sScore = 0;
 
     for (const t of combinedTokens) {
@@ -170,30 +223,59 @@ function matchRulesAndShortcuts(taskText, techTags, agentRoot) {
       if (sKey.toLowerCase() === t) sScore += 3;
     }
 
-    // Boost if shortcuts map to high priority rules
-    if (sVal.rules && Array.isArray(sVal.rules)) {
-      for (const r of matchedRules.slice(0, 3)) {
-        if (sVal.rules.includes(r.id)) sScore += 1.5;
+    // Match target path segments (standards/<stack>/, skills/<stack>/, agents/)
+    for (const tag of techTags) {
+      if (
+        targetNorm.includes(`standards/${tag}/`) ||
+        targetNorm.includes(`skills/${tag}/`)
+      ) {
+        sScore += 2.5;
       }
     }
 
+    if (
+      (techTags.includes('wpf') || techTags.includes('winforms') || techTags.includes('webapi')) &&
+      (targetNorm.includes('standards/csharp/') || targetNorm.includes('skills/csharp/'))
+    ) {
+      sScore += 1.5;
+    }
+    if (techTags.includes('sql') && (targetNorm.includes('standards/database/') || targetNorm.includes('skills/database/'))) {
+      sScore += 2.5;
+    }
+
+    // Boost if shortcut target path matches top priority rules
+    for (const r of topRules) {
+      const segments = RULE_TO_PATH_SEGMENTS[r.id] || [];
+      if (segments.some(seg => targetNorm.includes(seg))) {
+        sScore += 2.0;
+      }
+    }
+
+    const isAgentShortcut = sKey.startsWith('AGT_') || targetNorm.startsWith('agents/');
+
     if (sScore > 0) {
-      matchedSkills.push({
+      const entry = {
         shortcut: sKey,
         name: sVal.name || sKey,
         score: sScore,
         target: sVal.target,
         desc: sVal.desc
-      });
+      };
+      if (isAgentShortcut) {
+        matchedAgents.push(entry);
+      } else {
+        matchedSkills.push(entry);
+      }
     }
   }
 
-  matchedRules.sort((a, b) => b.score - a.score);
   matchedSkills.sort((a, b) => b.score - a.score);
+  matchedAgents.sort((a, b) => b.score - a.score);
 
   return {
-    rules: matchedRules.slice(0, 4),
-    skills: matchedSkills.slice(0, 4)
+    rules: topRules,
+    skills: matchedSkills.slice(0, 4),
+    agents: matchedAgents.slice(0, 3)
   };
 }
 
@@ -207,22 +289,44 @@ function decideRoute(taskText, options = {}) {
   const tagSet = new Set();
   if (projectInfo.domain) tagSet.add(projectInfo.domain);
   for (const t of techTags) tagSet.add(t);
-  
-  // Keyword-based tag deduction
-  const lower = taskText.toLowerCase();
-  if (/(jwt|auth|token|security|hash)/.test(lower)) tagSet.add('security');
-  if (/(api|rest|endpoint|controller)/.test(lower)) tagSet.add('api');
-  if (/(refactor|clean|simplify)/.test(lower)) tagSet.add('refactor');
-  if (/(winforms|form|control|ui)/.test(lower)) tagSet.add('winforms');
-  if (/(wpf|xaml)/.test(lower)) tagSet.add('wpf');
+
+  // Keyword-based tag deduction across all 13 stacks & domains
+  const lower = String(taskText || '').toLowerCase();
+  if (/(jwt|auth|token|security|hash|idor|bola|sqli|xss|ssrf|cvss|pentest)/.test(lower)) tagSet.add('security');
+  if (/(pentest|idor|bola|sqli|xss|ssrf|cvss|exploit|fuzz)/.test(lower)) tagSet.add('pentest');
+  if (/(reverse|reversing|ghidra|frida|deobfuscat|unpack|il2cpp|firmware\s+dump)/.test(lower)) tagSet.add('reversing');
+  if (/(api|rest|endpoint|controller|webapi)/.test(lower)) tagSet.add('api');
+  if (/(refactor|clean|simplify|modularize)/.test(lower)) tagSet.add('refactor');
+  if (/(winforms|baseform|xtraform|gridcontrol)/.test(lower)) tagSet.add('winforms');
+  if (/(wpf|xaml|mvvm)/.test(lower)) tagSet.add('wpf');
+  if (/(csharp|\bc#\b|dotnet|\.net|dapper|linq)/.test(lower)) tagSet.add('csharp');
+  if (/(rust|cargo|no_std|clippy|borrow|lifetime|ffi|crate|\brs\b)/.test(lower)) tagSet.add('rust');
+  if (/(python|fastapi|pydantic|asyncio|mypy|pytest|langgraph|\bpy\b)/.test(lower)) tagSet.add('python');
+  if (/(golang|\bgo\b|goroutine|errgroup|channel)/.test(lower)) tagSet.add('golang');
+  if (/(\bphp\b|pdo|laravel|symfony|psr-4)/.test(lower)) tagSet.add('php');
+  if (/(react|jsx|tsx|redux|zustand|useeffect|usestate|tailwind)/.test(lower)) tagSet.add('react');
+  if (/(node|nodejs|express|middleware|commonjs)/.test(lower)) tagSet.add('nodejs');
+  if (/(\bc\+\+|cpp|cmake|simd|native\s+interop|libraryimport)/.test(lower)) tagSet.add('cpp');
+  if (/(embedded|rtos|firmware|dma|isr|mmio|bare-metal|stm32)/.test(lower)) tagSet.add('embedded');
+  if (/(godot|gdscript|tscn|canvaslayer|packedscene)/.test(lower)) tagSet.add('godot');
+  if (/(game|arpg|hfsm|tick|loot)/.test(lower)) tagSet.add('game');
+  if (/(android|kotlin|compose|ndk|camerax|jni)/.test(lower)) tagSet.add('android');
+  if (/(sql|database|query|index|deadlock|sarg)/.test(lower)) tagSet.add('sql');
+  if (/(teamwork|multi-agent|subagent|orchestrat|adversarial\s+team|parallel\s+agent)/.test(lower)) {
+    tagSet.add('teamwork');
+    tagSet.add('multi-agent');
+  }
+  if (/(ui|ux|design\s+system|theme|dark\s+mode|layout|token)/.test(lower)) tagSet.add('ui');
   if (/(scada|plc|modbus)/.test(lower)) tagSet.add('scada');
-  if (/(inventory|stock)/.test(lower)) tagSet.add('inventory');
-  if (/(sales|order)/.test(lower)) tagSet.add('sales');
+  if (/(inventory|stock|warehouse)/.test(lower)) tagSet.add('inventory');
+  if (/(production|lot|bom|mes)/.test(lower)) tagSet.add('production');
+  if (/(sales|order|packing)/.test(lower)) tagSet.add('sales');
+  if (/(benchmark|perf|latency|simd|zero-alloc)/.test(lower)) tagSet.add('perf');
   if (tagSet.size === 0) tagSet.add('general');
 
   const suggestedTags = Array.from(tagSet);
 
-  // 2. Choice Primitives (Rules & Skills)
+  // 2. Choice Primitives (Rules, Skills, and Agents)
   const matches = matchRulesAndShortcuts(taskText, suggestedTags, agentRoot);
 
   // 3. Score Primitive (Risk)
@@ -255,6 +359,12 @@ function decideRoute(taskText, options = {}) {
         shortcut: s.shortcut,
         target: s.target,
         desc: s.desc
+      })),
+      recommended_agents: matches.agents.map(a => ({
+        shortcut: a.shortcut,
+        name: a.name,
+        target: a.target,
+        desc: a.desc
       })),
       suggested_tags: suggestedTags,
       is_dead_loop: loopCheck.is_dead_loop,
@@ -302,7 +412,7 @@ Example:
   console.log(`✦ Risk Level    : \x1b[33mLevel ${d.risk_level}/5\x1b[0m — ${d.risk_reason}`);
   console.log(`✦ Dead-Loop     : ${d.is_dead_loop ? '\x1b[31mTRIPPED (Cycle Detected)\x1b[0m' : '\x1b[32mCLEAR (Safe)\x1b[0m'}`);
   console.log(`✦ Suggested Tags: [${d.suggested_tags.join(', ')}]`);
-  
+
   if (d.target_rules.length > 0) {
     console.log(`\n📜 Active Rules to Enforce:`);
     result.meta.rule_details.forEach(r => {
@@ -316,8 +426,16 @@ Example:
       console.log(`  • [\x1b[32m${s.shortcut}\x1b[0m] ${s.desc} -> ${s.target}`);
     });
   }
+
+  if (d.recommended_agents && d.recommended_agents.length > 0) {
+    console.log(`\n🎭 Recommended Agent Personas:`);
+    d.recommended_agents.forEach(a => {
+      console.log(`  • [\x1b[35m${a.shortcut}\x1b[0m] ${a.name}: ${a.desc} -> ${a.target}`);
+    });
+  }
   console.log(`─────────────────────────────────────────────────────────────────\n`);
   process.exit(0);
 }
 
-module.exports = { decideRoute };
+module.exports = { decideRoute, matchRulesAndShortcuts };
+

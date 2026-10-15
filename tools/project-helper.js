@@ -99,34 +99,65 @@ function getProjectInfo(startDir = process.cwd()) {
   };
 }
 
-function inferTechTags(startDir = process.cwd()) {
+function inferTechTags(startDir = process.cwd(), fileListOverride = null) {
   const tags = new Set();
   try {
-    // 1. Check staged or recently modified files
-    let output = '';
-    try {
-      output = execSync('git status --porcelain', { cwd: startDir, encoding: 'utf-8', timeout: 3000 });
-    } catch {
-      // not a git repo or git not found
-    }
+    let lines = [];
 
-    if (!output.trim()) {
+    if (Array.isArray(startDir)) {
+      lines = startDir;
+    } else if (Array.isArray(fileListOverride)) {
+      lines = fileListOverride;
+    } else {
+      // 1. Check staged or recently modified files
+      let output = '';
       try {
-        output = execSync('git diff --name-only HEAD~1', { cwd: startDir, encoding: 'utf-8', timeout: 3000 });
+        output = execSync('git status --porcelain', { cwd: startDir, encoding: 'utf-8', timeout: 3000 });
       } catch {
-        // ignore
+        // not a git repo or git not found
       }
+
+      if (!output.trim()) {
+        try {
+          output = execSync('git diff --name-only HEAD~1', { cwd: startDir, encoding: 'utf-8', timeout: 3000 });
+        } catch {
+          // ignore
+        }
+      }
+      lines = output.split(/\r?\n/);
     }
 
-    const lines = output.split(/\r?\n/);
     for (const line of lines) {
-      if (!line.trim()) continue;
-      const cleanPath = line.replace(/^[AMD?RCU\s]+/g, '').replace(/\\/g, '/').toLowerCase();
+      if (!line || !String(line).trim()) continue;
+      const cleanPath = String(line).replace(/^[AMD?RCU\s]+/g, '').replace(/\\/g, '/').toLowerCase().trim();
 
+      if (cleanPath.endsWith('.rs') || cleanPath.endsWith('cargo.toml')) tags.add('rust');
+      if (cleanPath.endsWith('.py') || cleanPath.endsWith('pyproject.toml')) tags.add('python');
+      if (cleanPath.endsWith('.go') || cleanPath.endsWith('go.mod')) tags.add('golang');
+      if (cleanPath.endsWith('.php') || cleanPath.endsWith('composer.json')) tags.add('php');
+      if (cleanPath.endsWith('.tsx') || cleanPath.endsWith('.jsx')) tags.add('react');
+      if (cleanPath.endsWith('.ts') || cleanPath.endsWith('.js') || cleanPath.endsWith('.mjs') || cleanPath.endsWith('.cjs')) tags.add('nodejs');
+      if (
+        cleanPath.endsWith('.cpp') ||
+        cleanPath.endsWith('.cc') ||
+        cleanPath.endsWith('.cxx') ||
+        cleanPath.endsWith('.hpp') ||
+        cleanPath.endsWith('.c') ||
+        cleanPath.endsWith('.h')
+      ) {
+        tags.add('cpp');
+        tags.add('embedded');
+      }
+      if (cleanPath.endsWith('.gd') || cleanPath.endsWith('.tscn') || cleanPath.endsWith('project.godot')) {
+        tags.add('godot');
+      }
       if (cleanPath.includes('wpf') || cleanPath.endsWith('.xaml')) tags.add('wpf');
       if (cleanPath.includes('winforms') || cleanPath.includes('.designer.cs')) tags.add('winforms');
       if (cleanPath.includes('controller') || cleanPath.includes('webapi') || cleanPath.includes('endpoint')) tags.add('webapi');
-      if (cleanPath.includes('test') || cleanPath.endsWith('tests.cs')) tags.add('test');
+      if (cleanPath.includes('test') || cleanPath.endsWith('tests.cs')) {
+        tags.add('test');
+        tags.add('unit-test');
+      }
       if (cleanPath.includes('scada') || cleanPath.includes('plc') || cleanPath.includes('modbus')) tags.add('scada');
       if (cleanPath.includes('migration') || cleanPath.endsWith('.sql')) tags.add('sql');
       if (cleanPath.includes('inventory')) tags.add('inventory');
@@ -146,6 +177,8 @@ function inferTechTags(startDir = process.cwd()) {
 
 module.exports = {
   findProjectRoot,
+  parseProjectRule,
   getProjectInfo,
   inferTechTags
 };
+
