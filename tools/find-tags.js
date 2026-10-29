@@ -46,7 +46,7 @@ async function findByTags() {
         SELECT id, question, answer_context, tags, confidence_score, source 
         FROM agent_qa_cache 
         WHERE tags @> $1::text[]
-        ORDER BY confidence_score DESC, final_score DESC
+        ORDER BY confidence_score DESC, hit_count DESC
         LIMIT 10
       `;
       params = [tags];
@@ -56,7 +56,7 @@ async function findByTags() {
         SELECT id, question, answer_context, tags, confidence_score, source 
         FROM agent_qa_cache 
         WHERE tags && $1::text[]
-        ORDER BY confidence_score DESC, final_score DESC
+        ORDER BY confidence_score DESC, hit_count DESC
         LIMIT 10
       `;
       params = [tags];

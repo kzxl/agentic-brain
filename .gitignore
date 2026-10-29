@@ -6,3 +6,4 @@ data/*.ame
 data/*.jsonl
 data/.last-decision-cache.json
 *.ame
+data/backup/
