@@ -92,6 +92,10 @@ async function main() {
   check('all-projects scope is explicit',
     allQ.text.includes('AND TRUE') && allQ.params([], '[]', null, 'q').length === 4);
 
+  const bothQ = qaRankingQuery({ limit: 3, project: 'phase0-check', allProjects: true });
+  check('all-projects omits project param even when both are set',
+    bothQ.text.includes('AND TRUE') && bothQ.params([], '[]', null, 'q', 'phase0-check').length === 4);
+
   const failed = results.filter(r => !r.ok);
   console.log(`\n[VERIFY] ${results.length - failed.length}/${results.length} checks passed`);
   if (failed.length > 0) {

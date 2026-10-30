@@ -86,7 +86,7 @@ function qaRankingQuery(opts = {}) {
       const q = rawQuery || (tokens || []).join(' ');
       // The SQL scope decision is made from opts. Do not inject a project
       // parameter when the query was built as global-only or all-projects.
-      const p = project ? (projectArg || project) : null;
+      const p = !allProjects && project ? (projectArg || project) : null;
 
       if (withTags) {
         return p ? [vecJson, tags, q, limit, p] : [vecJson, tags, q, limit];

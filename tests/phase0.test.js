@@ -31,6 +31,11 @@ test('all-projects is explicit', () => {
   const qq = qaRankingQuery({ limit: 3, allProjects: true });
   assert.match(qq.text, /AND TRUE/);
   assert.equal(qq.params([], '[]', null, 'query').length, 4);
+
+  // Even if a project is supplied, all-projects wins and the param is omitted.
+  const both = qaRankingQuery({ limit: 3, project: 'demo', allProjects: true });
+  assert.match(both.text, /AND TRUE/);
+  assert.equal(both.params([], '[]', null, 'query', 'demo').length, 4);
 });
 
 test('ranking query clamps limit and minSimilarity', () => {
