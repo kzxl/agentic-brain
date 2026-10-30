@@ -12,7 +12,7 @@ const pool = require('../core/db');
 const fs = require('fs');
 
 const TABLE_MAP = {
-  qa_cache: { table: 'agent_qa_cache', columns: 'id, question, answer_context, source, category, tags, keywords, confidence_score, hit_count, useful_count, retrieval_count, use_count, last_retrieved_at, last_used_at, created_at, updated_at' },
+  qa_cache: { table: 'agent_qa_cache', columns: 'id, question, answer_context, source, category, tags, keywords, confidence_score, hit_count, useful_count, retrieval_count, use_count, last_retrieved_at, last_used_at, scope, scope_origin, scope_reason, scope_confidence, scope_candidate, review_status, parent_id, atom_index, chunk_type, source_ref, created_at, updated_at' },
   recipes: { table: 'agent_recipes', columns: 'id, intent, category, target_pattern, steps, skills_used, tools_used, keywords, hit_count, success_count, created_at, updated_at' },
   registry: { table: 'agent_registry', columns: 'id, name, type, path, description, keywords, content_preview, updated_at' },
 };

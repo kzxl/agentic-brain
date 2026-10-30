@@ -37,8 +37,8 @@ function qaRankingQuery(opts = {}) {
   const projectFilter = allProjects
     ? 'TRUE'
     : (project
-        ? `(('project:' || ${projectIdx}::text) = ANY(tags) OR 'project:global' = ANY(tags))`
-        : "('project:global' = ANY(tags))");
+        ? `(('project:' || ${projectIdx}::text) = ANY(tags) OR scope = 'global')`
+        : "scope = 'global'");
   const limitParam = withTags ? '$4' : '$3';
   const rawQueryIdx = withTags ? '$3' : '$2';
 
@@ -51,6 +51,7 @@ function qaRankingQuery(opts = {}) {
       FROM agent_qa_cache
       WHERE ${tagFilter}
         AND ${projectFilter}
+        AND COALESCE(chunk_type, 'atom') = 'atom'
     ),
     ranked AS (
       SELECT *,
