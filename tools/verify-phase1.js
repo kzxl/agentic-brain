@@ -63,12 +63,14 @@ async function main() {
   check('review queue is queryable', pending >= 0, `${pending} pending`);
 
   const projectQ = qaRankingQuery({ limit: 3, project: 'phase1-check' });
-  check('project query includes project tag predicate',
-    projectQ.text.includes("('project:' || $5::text) = ANY(tags)"));
+  check('project query includes project_id predicate',
+    projectQ.text.includes('project_id = $5::text'));
+  check('project params include project',
+    projectQ.params([], '[]', null, 'q', 'phase1-check')[4] === 'phase1-check');
 
   const defaultQ = qaRankingQuery({ limit: 3 });
   check('default query is global-only',
-    defaultQ.text.includes("scope = 'global'") && !defaultQ.text.includes('$5::text'));
+    defaultQ.text.includes("scope = 'global'") && defaultQ.params([], '[]', null, 'q')[4] === null);
   check('atom retrieval excludes documents',
     defaultQ.text.includes("COALESCE(chunk_type, 'atom') = 'atom'"));
 

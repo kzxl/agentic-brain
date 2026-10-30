@@ -13,34 +13,41 @@ test('Phase 0 defaults are safe', () => {
 
 test('ranking query enforces project scope', () => {
   const qq = qaRankingQuery({ limit: 3, project: 'demo' });
-  assert.match(qq.text, /\(\('project:' \|\| \$5::text\) = ANY\(tags\) OR scope = 'global'\)/);
+  assert.match(qq.text, /\$5::text = project_id OR scope = 'global'|project_id = \$5::text OR scope = 'global'/);
   assert.match(qq.text, /COALESCE\(chunk_type, 'atom'\) = 'atom'/);
   const params = qq.params(['a'], '[]', ['tech:ua'], 'query', 'demo');
-  assert.deepEqual(params, ['[]', ['tech:ua'], 'query', 3, 'demo']);
+  assert.deepEqual(params, ['[]', ['tech:ua'], 'query', 3, 'demo', false, 100]);
 });
 
 test('missing project defaults to global-only', () => {
   const qq = qaRankingQuery({ limit: 3 });
   assert.match(qq.text, /scope = 'global'/);
-  assert.doesNotMatch(qq.text, /\$5::text/);
-  assert.equal(qq.params([], '[]', null, 'query').length, 4);
+  assert.doesNotMatch(qq.text, /\$5::text IS NULL OR/);
+  const params = qq.params([], '[]', null, 'query');
+  assert.equal(params.length, 7);
+  assert.equal(params[4], null);
+  assert.equal(params[5], false);
 });
 
 test('all-projects is explicit', () => {
   const qq = qaRankingQuery({ limit: 3, allProjects: true });
-  assert.match(qq.text, /AND TRUE/);
-  assert.equal(qq.params([], '[]', null, 'query').length, 4);
+  assert.match(qq.text, /\$6::boolean = true/);
+  const params = qq.params([], '[]', null, 'query');
+  assert.equal(params.length, 7);
+  assert.equal(params[5], true);
 
-  // Even if a project is supplied, all-projects wins and the param is omitted.
+  // Even if a project is supplied, all-projects wins.
   const both = qaRankingQuery({ limit: 3, project: 'demo', allProjects: true });
-  assert.match(both.text, /AND TRUE/);
-  assert.equal(both.params([], '[]', null, 'query', 'demo').length, 4);
+  const bothParams = both.params([], '[]', null, 'query', 'demo');
+  assert.equal(bothParams.length, 7);
+  assert.equal(bothParams[5], true);
 });
 
 test('ranking query clamps limit and minSimilarity', () => {
   const qq = qaRankingQuery({ limit: 9999, minSimilarity: 5 });
   const params = qq.params([], '[]', null, 'q', null);
   assert.equal(params[3], 100);
+  assert.equal(params[6], 100);
   assert.match(qq.text, /vector_similarity > 1 OR/);
 });
 

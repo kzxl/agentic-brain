@@ -80,22 +80,23 @@ async function main() {
 
   const qq = qaRankingQuery({ limit: 3, project: 'phase0-check' });
   check('ranking query has project predicate',
-    qq.text.includes("('project:' || $5::text) = ANY(tags)"));
-  check('ranking query params include project', qq.params([], '[]', null, 'q', 'phase0-check').length === 5);
+    qq.text.includes('project_id = $5::text'));
+  check('ranking query params include project', qq.params([], '[]', null, 'q', 'phase0-check').length === 7);
 
   const defaultQ = qaRankingQuery({ limit: 3 });
   check('default scope is global-only',
-    defaultQ.text.includes("scope = 'global'") && !defaultQ.text.includes('$5::text'));
-  check('default params omit project', defaultQ.params([], '[]', null, 'q').length === 4);
+    defaultQ.text.includes("scope = 'global'"));
+  const defaultParams = defaultQ.params([], '[]', null, 'q');
+  check('default params omit project', defaultParams.length === 7 && defaultParams[4] === null);
   check('documents excluded from atom retrieval', defaultQ.text.includes("COALESCE(chunk_type, 'atom') = 'atom'"));
 
   const allQ = qaRankingQuery({ limit: 3, allProjects: true });
   check('all-projects scope is explicit',
-    allQ.text.includes('AND TRUE') && allQ.params([], '[]', null, 'q').length === 4);
+    allQ.text.includes('$6::boolean = true') && allQ.params([], '[]', null, 'q')[5] === true);
 
   const bothQ = qaRankingQuery({ limit: 3, project: 'phase0-check', allProjects: true });
-  check('all-projects omits project param even when both are set',
-    bothQ.text.includes('AND TRUE') && bothQ.params([], '[]', null, 'q', 'phase0-check').length === 4);
+  check('all-projects wins even when a project is set',
+    bothQ.params([], '[]', null, 'q', 'phase0-check')[5] === true);
 
   const failed = results.filter(r => !r.ok);
   console.log(`\n[VERIFY] ${results.length - failed.length}/${results.length} checks passed`);

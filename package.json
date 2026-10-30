@@ -23,6 +23,7 @@
     "test": "node --test tests/",
     "verify:phase0": "node tools/verify-phase0.js",
     "verify:phase1": "node tools/verify-phase1.js",
+    "verify:phase2": "node tools/verify-phase2.js",
     "review:scope": "node tools/review-scope.js",
     "baseline": "node tools/baseline.js",
     "export": "node maintenance/export.js",

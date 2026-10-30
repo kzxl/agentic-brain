@@ -46,6 +46,12 @@ graph TD
 - `save-qa` rejects answers over 2000 characters unless `--allow-long`; `post-task --direct` requires `<problem> | <cause> | <fix>`.
 - Review candidates with `node tools/review-scope.js`; approve promotes to global, reject keeps project scope.
 
+### 2.2. Trust & Provenance
+- Every atom has `trust_level`: `observation`, `hypothesis`, `inference`, `verified_fact`, or `user_decision`.
+- `verified_fact` requires `verifier` or `evidence`; otherwise it is downgraded to `hypothesis`.
+- `project_id`, `source_type`, `evidence`, `verifier`, `verified_at`, `valid_from`/`valid_to`, and `status` are stored as columns.
+- Retrieval only returns `status='active'` rows that are not expired.
+
 ### 3. Semantic Deduplication & Reinforcement ($\ge 85\%$)
 - Compares new knowledge embeddings against existing entries within the same project domain.
 - Instead of creating duplicate records, matches $\ge 85\%$ similarity strengthen hit counts, update guidance, and archive previous answers into `agent_qa_history`.
@@ -66,7 +72,7 @@ graph TD
 | Component | Technology | Description |
 | :--- | :--- | :--- |
 | **Embedding** | `@xenova/transformers` | BGE-M3 (1024-dimension, local inference, ~570MB) |
-| **Vector Database** | PostgreSQL 16 + `pgvector` | HNSW index. Phase 0 baseline: ~340 ms p50 on 3.4k rows; ANN-first candidate generation lands in Phase 2. |
+| **Vector Database** | PostgreSQL 16 + `pgvector` | HNSW index. Phase 2 baseline: global p50 ~5.5 ms; ERP p50 ~48 ms on 3.4k rows. |
 | **Search Strategy** | Hybrid RRF | Reciprocal Rank Fusion of Cosine Vector Distance and Full-Text Search |
 | **LLM Backend** | Ollama / Cloud Fallback | Local Qwen / Llama models with optional cloud provider failover |
 | **Runtime** | Node.js (ES6+) | Standalone lightweight micro-services and CLI utilities |
@@ -155,7 +161,7 @@ node tools/post-task.js "Deadlock on RefInId | Missing composite index on (DocId
 node tools/ingest-knowledge.js --file=atoms.json --project=erp --tags=inventory,database
 
 # 4. Pin Invariant: Store non-decaying fundamental architectural standard
-node tools/save-qa.js "How to structure WPF controllers?" "Always inherit from BaseForm and use RunAfterShown." --project=erp --tags=csharp,wpf --pinned
+node tools/save-qa.js "How to structure WPF controllers?" "Always inherit from BaseForm and use RunAfterShown." --project=erp --tags=csharp,wpf --pinned --trust=verified_fact --verifier=user --evidence=code-review
 
 # 5. Curation: Audit stale entries and semantic overlap (Dry-Run)
 node tools/curate.js --dry-run

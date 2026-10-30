@@ -1,5 +1,7 @@
 # Phase 1 — Kết quả triển khai: Scope + Atomic Ingestion
 
+> Snapshot Phase 1. Sau Phase 2: `npm test` 24/24, `verify:phase1` 27/27; xem [phase2-results.md](phase2-results.md).
+
 - **Ngày:** 2026-10-30
 - **Branch:** `feat/phase0-stabilization`
 - **Migration:** `006_scope_and_atoms.sql`, `007_scope_trigger.sql`

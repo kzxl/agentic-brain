@@ -11,6 +11,7 @@ Bộ tài liệu kiểm toán và thiết kế đích, lập ngày 2026-10-30 tr
 | [remediation-plan.md](remediation-plan.md) | Cách xử lý từng sự cố: patch đề xuất, DDL, quick wins 3 ngày, nghiệm thu | Cần biết "sửa cái gì, sửa thế nào" |
 | [phase0-results.md](phase0-results.md) | Kết quả triển khai Phase 0, migration, kiểm chứng, baseline, rủi ro còn lại | Cần biết "đã làm gì và hiện trạng mới" |
 | [phase1-results.md](phase1-results.md) | Kết quả Phase 1: scope resolver, atomic ingestion, review queue | Cần biết "tri thức được phân loại và tách atom thế nào" |
+| [phase2-results.md](phase2-results.md) | Kết quả Phase 2: project_id, trust/provenance, ANN-first | Cần biết "đã scale và kiểm chứng tri thức thế nào" |
 | [baseline.json](baseline.json) | Baseline 20 query: latency, top hits | So sánh sau Phase 2 |
 | [implementation-roadmap.md](implementation-roadmap.md) | 8 phase, backlog, test, risk, 4 tuần đầu | Cần biết "làm gì trước, tốn bao nhiêu" |
 
@@ -24,6 +25,15 @@ Bộ tài liệu kiểm toán và thiết kế đích, lập ngày 2026-10-30 tr
 - Retrieval chỉ trả atom; document không lọt top-k.
 - `post-task --direct` bắt buộc format; `save-qa` chặn answer quá dài.
 - Chi tiết: [phase1-results.md](phase1-results.md).
+
+## Phase 2 (đã triển khai)
+
+- `project_id` là cột thật; unique `(project_id, question_hash)` cho atom.
+- Trust 5 mức + `source_type`, `evidence`, `verifier`, `valid_from/to`, `status`.
+- Retrieval chỉ trả `status='active'`, chưa hết hạn; trả kèm trust/project.
+- ANN-first candidate + FTS candidate trên `tsv` GIN index.
+- Baseline: global p50 **5,53 ms**, ERP p50 **48,22 ms**.
+- Chi tiết: [phase2-results.md](phase2-results.md), [baseline-erp.json](baseline-erp.json).
 
 ## Baseline tóm tắt (snapshot trước Phase 0)
 
