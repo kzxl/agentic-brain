@@ -1,6 +1,6 @@
 # Phase 0 — Kết quả triển khai
 
-> Đây là snapshot Phase 0. Sau Phase 1, `npm test` là 19/19 và `verify:phase0` là 31/31; xem [phase1-results.md](phase1-results.md).
+> Đây là snapshot Phase 0. Sau Phase 1, `npm test` là 19/19 và `verify:phase0` là 31/31; xem [phase1-results.md](./phase1-results.md).
 
 - **Ngày:** 2026-10-30
 - **Base commit:** `77927b4`
@@ -100,7 +100,7 @@
 
 - `tests/phase0.test.js` (6 test): defaults, project predicate, global-only default, all-projects, clamp, tag normalization.
 - `tools/verify-phase0.js`: 30 check on schema/config/project scope.
-- `tools/baseline.js`: 20 query, ghi `docs/architecture/baseline.json`.
+- `tools/baseline.js`: 20 query, ghi `docs/architecture/baselines/baseline.json`.
 
 ---
 
@@ -128,7 +128,7 @@
 
 ### Baseline retrieval
 
-`docs/architecture/baseline.json`:
+`docs/architecture/baselines/baseline.json`:
 
 - 3.408 bản ghi.
 - 20 query.
@@ -190,7 +190,7 @@
 
 ## 8. File thay đổi
 
-**Mới:** `migrations/001..005`, `migrations/run.js`, `core/knowledge.js`, `tests/phase0.test.js`, `tools/verify-phase0.js`, `tools/baseline.js`, `docs/architecture/phase0-results.md`, `docs/architecture/baseline.json`.
+**Mới:** `migrations/001..005`, `migrations/run.js`, `core/knowledge.js`, `tests/phase0.test.js`, `tools/verify-phase0.js`, `tools/baseline.js`, `docs/architecture/results/phase0-results.md`, `docs/architecture/baselines/baseline.json`.
 
 **Sửa:** `core/config.js`, `core/index.js`, `core/queries.js`, `core/client.js`, `server.js`, `openai-proxy.js`, `maintenance/setup.js`, `maintenance/export.js`, `tools/save-qa.js`, `tools/auto-harvest.js`, `tools/auto-qa.js`, `tools/find-qa.js`, `tools/find-qa-context.js`, `tools/find-qa-deep.js`, `tools/mark-useful.js`, `tools/mark-unhelpful.js`, `tools/post-task.js`, `package.json`, `.env.example`, `Dockerfile`, `docker-compose.yml`, `README.md`.
 

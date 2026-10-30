@@ -4,17 +4,18 @@ Bộ tài liệu kiểm toán và thiết kế đích, lập ngày 2026-10-30 tr
 
 | Tài liệu | Nội dung | Đọc khi |
 | :--- | :--- | :--- |
-| [current-state-audit.md](current-state-audit.md) | Kiểm toán 14 thành phần, sơ đồ hiện trạng, số liệu đo được, technical debt, 10 vấn đề và 10 cải tiến | Cần biết "hiện tại đang ở đâu" |
-| [memory-system.md](memory-system.md) | Thiết kế 5 loại memory, trust/provenance, lifecycle, schema, consolidation, migration | Cần biết "bộ nhớ sẽ tổ chức thế nào" |
-| [hybrid-reasoning.md](hybrid-reasoning.md) | Workflow suy luận, adaptive model routing, gateway, sufficiency, conflict, harvest gate | Cần biết "LLM và tri thức phối hợp ra sao" |
-| [target-architecture.md](target-architecture.md) | Kiến trúc đích, module boundary, API, storage, migration tăng dần, so sánh phương án | Cần biết "hệ thống sẽ trông thế nào" |
-| [remediation-plan.md](remediation-plan.md) | Cách xử lý từng sự cố: patch đề xuất, DDL, quick wins 3 ngày, nghiệm thu | Cần biết "sửa cái gì, sửa thế nào" |
-| [phase0-results.md](phase0-results.md) | Kết quả triển khai Phase 0, migration, kiểm chứng, baseline, rủi ro còn lại | Cần biết "đã làm gì và hiện trạng mới" |
-| [phase1-results.md](phase1-results.md) | Kết quả Phase 1: scope resolver, atomic ingestion, review queue | Cần biết "tri thức được phân loại và tách atom thế nào" |
-| [phase2-results.md](phase2-results.md) | Kết quả Phase 2: project_id, trust/provenance, ANN-first | Cần biết "đã scale và kiểm chứng tri thức thế nào" |
-| [phase3-results.md](phase3-results.md) | Kết quả Phase 3: status lifecycle, trust promotion, parent context, ANN 50k | Cần biết "vận hành và scale hiện tại" |
-| [baseline.json](baseline.json) | Baseline 20 query: latency, top hits | So sánh sau Phase 2 |
-| [implementation-roadmap.md](implementation-roadmap.md) | 8 phase, backlog, test, risk, 4 tuần đầu | Cần biết "làm gì trước, tốn bao nhiêu" |
+| [next-steps.md](../next-steps.md) | Việc còn lại, ưu tiên, effort, tiêu chí nghiệm thu | Cần biết "làm gì tiếp" |
+| [current-state-audit.md](./audit/current-state-audit.md) | Kiểm toán 14 thành phần, sơ đồ hiện trạng, số liệu đo được, technical debt, 10 vấn đề và 10 cải tiến | Cần biết "hiện tại đang ở đâu" |
+| [memory-system.md](./design/memory-system.md) | Thiết kế 5 loại memory, trust/provenance, lifecycle, schema, consolidation, migration | Cần biết "bộ nhớ sẽ tổ chức thế nào" |
+| [hybrid-reasoning.md](./design/hybrid-reasoning.md) | Workflow suy luận, adaptive model routing, gateway, sufficiency, conflict, harvest gate | Cần biết "LLM và tri thức phối hợp ra sao" |
+| [target-architecture.md](./design/target-architecture.md) | Kiến trúc đích, module boundary, API, storage, migration tăng dần, so sánh phương án | Cần biết "hệ thống sẽ trông thế nào" |
+| [remediation-plan.md](./roadmap/remediation-plan.md) | Cách xử lý từng sự cố: patch đề xuất, DDL, quick wins 3 ngày, nghiệm thu | Cần biết "sửa cái gì, sửa thế nào" |
+| [phase0-results.md](./results/phase0-results.md) | Kết quả triển khai Phase 0, migration, kiểm chứng, baseline, rủi ro còn lại | Cần biết "đã làm gì và hiện trạng mới" |
+| [phase1-results.md](./results/phase1-results.md) | Kết quả Phase 1: scope resolver, atomic ingestion, review queue | Cần biết "tri thức được phân loại và tách atom thế nào" |
+| [phase2-results.md](./results/phase2-results.md) | Kết quả Phase 2: project_id, trust/provenance, ANN-first | Cần biết "đã scale và kiểm chứng tri thức thế nào" |
+| [phase3-results.md](./results/phase3-results.md) | Kết quả Phase 3: status lifecycle, trust promotion, parent context, ANN 50k | Cần biết "vận hành và scale hiện tại" |
+| [baseline.json](./baselines/baseline.json) | Baseline 20 query: latency, top hits | So sánh sau Phase 2 |
+| [implementation-roadmap.md](./roadmap/implementation-roadmap.md) | 8 phase, backlog, test, risk, 4 tuần đầu | Cần biết "làm gì trước, tốn bao nhiêu" |
 
 ## Phase 1 (đã triển khai)
 
@@ -25,7 +26,7 @@ Bộ tài liệu kiểm toán và thiết kế đích, lập ngày 2026-10-30 tr
 - Không còn local LLM đọc lại summary trong harvest.
 - Retrieval chỉ trả atom; document không lọt top-k.
 - `post-task --direct` bắt buộc format; `save-qa` chặn answer quá dài.
-- Chi tiết: [phase1-results.md](phase1-results.md).
+- Chi tiết: [phase1-results.md](./results/phase1-results.md).
 
 ## Phase 3 (đã triển khai)
 
@@ -33,7 +34,7 @@ Bộ tài liệu kiểm toán và thiết kế đích, lập ngày 2026-10-30 tr
 - `trust:promote` nâng observation → verified_fact với evidence/verifier.
 - `--with-parent` / `include_parent` fetch parent document; `view-qa` hiển thị parent/children.
 - 50k benchmark: planner 522 ms vs forced HNSW 57 ms; production bật `RETRIEVAL_FORCE_INDEX=true`.
-- Chi tiết: [phase3-results.md](phase3-results.md), [baseline-ann-50000.json](baseline-ann-50000.json).
+- Chi tiết: [phase3-results.md](./results/phase3-results.md), [baseline-ann-50000.json](./baselines/baseline-ann-50000.json).
 
 ## Phase 2 (đã triển khai)
 
@@ -43,7 +44,7 @@ Bộ tài liệu kiểm toán và thiết kế đích, lập ngày 2026-10-30 tr
 - ANN-first candidate + FTS candidate trên `tsv` GIN index.
 - Baseline Phase 2 (planner): global p50 **5,53 ms**, ERP p50 **48,22 ms**.
 - Phase 3 production force-index: global **8,04 ms**, ERP **49,15 ms**, 50k forced HNSW **56,77 ms**.
-- Chi tiết: [phase2-results.md](phase2-results.md), [baseline-erp.json](baseline-erp.json).
+- Chi tiết: [phase2-results.md](./results/phase2-results.md), [baseline-erp.json](./baselines/baseline-erp.json).
 
 ## Baseline tóm tắt (snapshot trước Phase 0)
 
@@ -63,7 +64,7 @@ Bộ tài liệu kiểm toán và thiết kế đích, lập ngày 2026-10-30 tr
 - Auth Bearer, bind localhost, body limit 1 MB.
 - `retrieval_count` / `use_count` tách khỏi `hit_count`.
 - Baseline mới: p50 **340 ms**, p95 **377 ms** trên 3.408 bản ghi; ANN-first là Phase 2.
-- Chi tiết: [phase0-results.md](phase0-results.md).
+- Chi tiết: [phase0-results.md](./results/phase0-results.md).
 
 ## Nguyên tắc đọc
 

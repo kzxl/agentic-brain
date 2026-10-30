@@ -4,7 +4,7 @@
 - **Commit:** `77927b4` (fix(semantic): repair tag/migration SQL, honor dbPath, guard backups)
 - **Phạm vi:** `E:\Tools\SemanticBrain` (Node.js + PostgreSQL/pgvector + AME), có tham chiếu dependency `E:\15. Other\AgentMemoryEngine`
 - **Phương pháp:** đọc toàn bộ source; đo schema và dữ liệu thật trên PostgreSQL; `EXPLAIN (ANALYZE, BUFFERS)` cho query retrieval lõi; `AME inspect` và `AME query` trên container thật; không sửa source, không xóa dữ liệu.
-- **Lưu ý:** số liệu dưới đây là snapshot **trước Phase 0**. Sau triển khai, xem [phase0-results.md](phase0-results.md).
+- **Lưu ý:** số liệu dưới đây là snapshot **trước Phase 0**. Sau triển khai, xem [phase0-results.md](../results/phase0-results.md).
 - **Nguyên tắc phân loại:** một tính năng chỉ được coi là "đã triển khai" khi có đường đọc/ghi thực tế và có dữ liệu/đường gọi chứng minh. Class hoặc interface tồn tại nhưng không được nối vào luồng chính thì xếp "một phần" hoặc "chỉ trên giấy".
 
 ---
@@ -575,4 +575,4 @@ Hệ thống được thiết kế "multi-tenant bằng tag" nhưng thực tế 
 9. **Evaluation harness:** golden set, precision@k/recall/nDCG, context token efficiency, conflict rate, latency/cost, A/B có/không memory.
 10. **Security & vận hành:** auth token, rate limit, body limit, audit log, structured metrics, migration/CI.
 
-> Chi tiết thiết kế đích: [target-architecture.md](target-architecture.md). Chi tiết memory: [memory-system.md](memory-system.md). Chi tiết suy luận: [hybrid-reasoning.md](hybrid-reasoning.md). Cách xử lý từng sự cố: [remediation-plan.md](remediation-plan.md). Lộ trình: [implementation-roadmap.md](implementation-roadmap.md).
+> Chi tiết thiết kế đích: [target-architecture.md](../design/target-architecture.md). Chi tiết memory: [memory-system.md](../design/memory-system.md). Chi tiết suy luận: [hybrid-reasoning.md](../design/hybrid-reasoning.md). Cách xử lý từng sự cố: [remediation-plan.md](../roadmap/remediation-plan.md). Lộ trình: [implementation-roadmap.md](../roadmap/implementation-roadmap.md).

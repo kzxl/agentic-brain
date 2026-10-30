@@ -53,7 +53,7 @@ async function main() {
   check('retrieval filters validity', qq.text.includes('valid_to IS NULL OR valid_to > NOW()'));
   check('retrieval force-index enabled', config.retrieval?.forceIndex === true);
   check('50k benchmark artifact exists',
-    fs.existsSync(path.join(__dirname, '..', 'docs', 'architecture', 'baseline-ann-50000.json')));
+    fs.existsSync(path.join(__dirname, '..', 'docs', 'architecture', 'baselines', 'baseline-ann-50000.json')));
 
   const failed = results.filter(r => !r.ok);
   console.log(`\n[VERIFY] ${results.length - failed.length}/${results.length} checks passed`);

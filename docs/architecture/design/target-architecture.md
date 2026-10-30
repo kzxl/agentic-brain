@@ -1,6 +1,6 @@
 # Semantic Brain — Kiến trúc đích
 
-Tài liệu mô tả kiến trúc mục tiêu cho **External Cognitive Memory & Hybrid Reasoning System**, khả thi trên một máy CPU 16 GB, triển khai tăng dần trên codebase hiện tại. Các quyết định memory chi tiết ở [memory-system.md](memory-system.md), reasoning ở [hybrid-reasoning.md](hybrid-reasoning.md), lộ trình ở [implementation-roadmap.md](implementation-roadmap.md).
+Tài liệu mô tả kiến trúc mục tiêu cho **External Cognitive Memory & Hybrid Reasoning System**, khả thi trên một máy CPU 16 GB, triển khai tăng dần trên codebase hiện tại. Các quyết định memory chi tiết ở [memory-system.md](./memory-system.md), reasoning ở [hybrid-reasoning.md](./hybrid-reasoning.md), lộ trình ở [implementation-roadmap.md](../roadmap/implementation-roadmap.md).
 
 ---
 
@@ -298,7 +298,7 @@ capture → normalize → classify → validate → active
    → stale → archived
 ```
 
-Chi tiết trạng thái và quy tắc ở [memory-system.md](memory-system.md) §4.
+Chi tiết trạng thái và quy tắc ở [memory-system.md](./memory-system.md) §4.
 
 ---
 
@@ -453,7 +453,7 @@ Không spawn process con để lưu; dùng HTTP hoặc in-process import.
 
 ## 9. Model routing và failure handling
 
-Tóm tắt; chi tiết ở [hybrid-reasoning.md](hybrid-reasoning.md).
+Tóm tắt; chi tiết ở [hybrid-reasoning.md](./hybrid-reasoning.md).
 
 | Task | Default | Escalate khi |
 | :--- | :--- | :--- |

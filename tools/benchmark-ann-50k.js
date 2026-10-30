@@ -173,7 +173,8 @@ async function main() {
       forcedPlanLines,
     };
 
-    const outPath = path.join(__dirname, '..', 'docs', 'architecture', `baseline-ann-${ROWS}.json`);
+    const outPath = path.join(__dirname, '..', 'docs', 'architecture', 'baselines', `baseline-ann-${ROWS}.json`);
+    fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(outPath, JSON.stringify(result, null, 2) + '\n', 'utf8');
     console.log(`[BENCH] wrote ${outPath}`);
     console.log(`[BENCH] p50=${result.latency.p50}ms p95=${result.latency.p95}ms rows=${total}`);

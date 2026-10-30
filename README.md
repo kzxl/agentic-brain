@@ -2,6 +2,8 @@
 
 **agentic-brain** is an offline, high-performance episodic and semantic memory engine for autonomous AI coding agents (Claude, Gemini, Cursor, Cline, OpenCode). Powered by PostgreSQL with `pgvector` and local BGE-M3 embeddings, it functions as the long-term memory substrate (Tier L2/L3) within the [agentic-core](https://github.com/kzxl/agentic-core) enterprise operating system.
 
+> Documentation: [docs/README.md](docs/README.md) · Remaining work: [docs/next-steps.md](docs/next-steps.md)
+
 ---
 
 ## 🏛️ Ecosystem Architecture

@@ -5,7 +5,7 @@
  * Usage:
  *   node tools/baseline.js [--project=erp] [--limit=5]
  *
- * Writes docs/architecture/baseline.json. Safe for read-only DB usage:
+ * Writes docs/architecture/baselines/baseline.json. Safe for read-only DB usage:
  * it only embeds queries and runs SELECTs.
  */
 const fs = require('fs');
@@ -109,7 +109,7 @@ async function main() {
 
   const outPath = OUT_ARG
     ? path.resolve(OUT_ARG)
-    : path.join(__dirname, '..', 'docs', 'architecture', 'baseline.json');
+    : path.join(__dirname, '..', 'docs', 'architecture', 'baselines', 'baseline.json');
   fs.writeFileSync(outPath, JSON.stringify(output, null, 2) + '\n', 'utf8');
   console.log(`\n[BASELINE] wrote ${outPath}`);
   console.log(`[BASELINE] records=${total} p50=${output.latency.p50}ms p95=${output.latency.p95}ms`);

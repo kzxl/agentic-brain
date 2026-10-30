@@ -46,7 +46,7 @@ Hệ thống cài mới chạy được, không mất dữ liệu, không rò r�
 - `MEMORY_BACKEND=ame` không còn mất dữ liệu (hoặc bị từ chối rõ ràng nếu AME down).
 - REST/proxy từ chối request không có token (trừ `/health`).
 - Retrieval MISS không tự tạo bản ghi confidence 1.0.
-- Có file baseline `docs/architecture/baseline.json` với 50 query + latency + top-5 id.
+- Có file baseline `docs/architecture/baselines/baseline.json` với 50 query + latency + top-5 id.
 
 ### Test
 
@@ -93,7 +93,7 @@ Chuẩn hóa memory model, trust/provenance, project isolation; chỉ còn một
 
 ### Test
 
-- MS-01 → MS-08 (xem [memory-system.md](memory-system.md) §7).
+- MS-01 → MS-08 (xem [memory-system.md](../design/memory-system.md) §7).
 - Query project A không trả project B.
 - Backfill đếm: tổng = 3.407 (hoặc số hiện tại), không mất dòng.
 - Ghi proxy → không xuất hiện trong semantic default.
