@@ -12,6 +12,7 @@ Bộ tài liệu kiểm toán và thiết kế đích, lập ngày 2026-10-30 tr
 | [phase0-results.md](phase0-results.md) | Kết quả triển khai Phase 0, migration, kiểm chứng, baseline, rủi ro còn lại | Cần biết "đã làm gì và hiện trạng mới" |
 | [phase1-results.md](phase1-results.md) | Kết quả Phase 1: scope resolver, atomic ingestion, review queue | Cần biết "tri thức được phân loại và tách atom thế nào" |
 | [phase2-results.md](phase2-results.md) | Kết quả Phase 2: project_id, trust/provenance, ANN-first | Cần biết "đã scale và kiểm chứng tri thức thế nào" |
+| [phase3-results.md](phase3-results.md) | Kết quả Phase 3: status lifecycle, trust promotion, parent context, ANN 50k | Cần biết "vận hành và scale hiện tại" |
 | [baseline.json](baseline.json) | Baseline 20 query: latency, top hits | So sánh sau Phase 2 |
 | [implementation-roadmap.md](implementation-roadmap.md) | 8 phase, backlog, test, risk, 4 tuần đầu | Cần biết "làm gì trước, tốn bao nhiêu" |
 
@@ -26,13 +27,22 @@ Bộ tài liệu kiểm toán và thiết kế đích, lập ngày 2026-10-30 tr
 - `post-task --direct` bắt buộc format; `save-qa` chặn answer quá dài.
 - Chi tiết: [phase1-results.md](phase1-results.md).
 
+## Phase 3 (đã triển khai)
+
+- `curate`/`qa-health` dùng `status` + `retrieval_count`/`use_count`; views đã đổi nguồn.
+- `trust:promote` nâng observation → verified_fact với evidence/verifier.
+- `--with-parent` / `include_parent` fetch parent document; `view-qa` hiển thị parent/children.
+- 50k benchmark: planner 522 ms vs forced HNSW 57 ms; production bật `RETRIEVAL_FORCE_INDEX=true`.
+- Chi tiết: [phase3-results.md](phase3-results.md), [baseline-ann-50000.json](baseline-ann-50000.json).
+
 ## Phase 2 (đã triển khai)
 
 - `project_id` là cột thật; unique `(project_id, question_hash)` cho atom.
 - Trust 5 mức + `source_type`, `evidence`, `verifier`, `valid_from/to`, `status`.
 - Retrieval chỉ trả `status='active'`, chưa hết hạn; trả kèm trust/project.
 - ANN-first candidate + FTS candidate trên `tsv` GIN index.
-- Baseline: global p50 **5,53 ms**, ERP p50 **48,22 ms**.
+- Baseline Phase 2 (planner): global p50 **5,53 ms**, ERP p50 **48,22 ms**.
+- Phase 3 production force-index: global **8,04 ms**, ERP **49,15 ms**, 50k forced HNSW **56,77 ms**.
 - Chi tiết: [phase2-results.md](phase2-results.md), [baseline-erp.json](baseline-erp.json).
 
 ## Baseline tóm tắt (snapshot trước Phase 0)

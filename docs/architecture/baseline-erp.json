@@ -1,22 +1,22 @@
 {
-  "generatedAt": "2026-10-30T06:13:43.083Z",
-  "commit": "dbdf4ce31343fe34713dade3811fd127916f9e6a",
+  "generatedAt": "2026-10-30T06:55:55.633Z",
+  "commit": "eab82409be83e9f585a2b9ea1068d8c2c0913095",
   "project": "erp",
   "limit": 5,
-  "totalRecords": 3410,
+  "totalRecords": 3411,
   "warmupMs": 5,
   "queries": 20,
   "latency": {
-    "min": 34.26,
-    "p50": 48.22,
-    "p95": 63.29,
-    "max": 63.29,
-    "mean": 46.83
+    "min": 35.74,
+    "p50": 49.15,
+    "p95": 86.35,
+    "max": 86.35,
+    "mean": 50.31
   },
   "results": [
     {
       "query": "Universe Architecture UA là gì và cấu trúc thư mục chuẩn",
-      "latencyMs": 63.29,
+      "latencyMs": 86.35,
       "hits": [
         {
           "id": 1,
@@ -25,7 +25,7 @@
         },
         {
           "id": 3619,
-          "score": 41.4,
+          "score": 41.3,
           "question": "Established Enterprise API Design & Security Standards Specification conforming to Universe Architecture (UA v4.0), Clea"
         },
         {
@@ -47,7 +47,7 @@
     },
     {
       "query": "Cách phân tách Service Controller View trong WinForms",
-      "latencyMs": 51.34,
+      "latencyMs": 48.75,
       "hits": [
         {
           "id": 2194,
@@ -78,7 +78,7 @@
     },
     {
       "query": "Lỗi deadlock khi commit transaction trong service inventory",
-      "latencyMs": 49.95,
+      "latencyMs": 49.71,
       "hits": [
         {
           "id": 3785,
@@ -109,7 +109,7 @@
     },
     {
       "query": "BaseForm RunAfterShown pattern khởi tạo form",
-      "latencyMs": 48.01,
+      "latencyMs": 48.1,
       "hits": [
         {
           "id": 192,
@@ -123,7 +123,7 @@
         },
         {
           "id": 2909,
-          "score": 41.4,
+          "score": 41.3,
           "question": "Chuẩn hóa main Form frmOrder theo BaseForm Gold Standard (TargetId, RunAfterShownWithLoading, SaveWithBusyStateAsync, 5 "
         },
         {
@@ -140,7 +140,7 @@
     },
     {
       "query": "BindingList DevExpress grid pattern",
-      "latencyMs": 34.26,
+      "latencyMs": 46.81,
       "hits": [
         {
           "id": 2953,
@@ -154,7 +154,7 @@
         },
         {
           "id": 4264,
-          "score": 41,
+          "score": 40.9,
           "question": "Khôi phục layout GridView DevExpress đè mất cấu hình Group Sort trong Designer"
         },
         {
@@ -171,7 +171,7 @@
     },
     {
       "query": "Cách check permission trong WinForms",
-      "latencyMs": 47.32,
+      "latencyMs": 47.82,
       "hits": [
         {
           "id": 1176,
@@ -202,7 +202,7 @@
     },
     {
       "query": "Khi nào tạo DTO thay vì truyền param rời",
-      "latencyMs": 50.12,
+      "latencyMs": 48.88,
       "hits": [
         {
           "id": 251,
@@ -211,7 +211,7 @@
         },
         {
           "id": 120,
-          "score": 39.5,
+          "score": 39.4,
           "question": "Cách dùng DTO (Data Transfer Object) trong MDS?"
         },
         {
@@ -233,7 +233,7 @@
     },
     {
       "query": "Production module workflow và BOM",
-      "latencyMs": 48.87,
+      "latencyMs": 49.15,
       "hits": [
         {
           "id": 4243,
@@ -264,7 +264,7 @@
     },
     {
       "query": "Inspection QC approval workflow",
-      "latencyMs": 37.2,
+      "latencyMs": 51.24,
       "hits": [
         {
           "id": 3870,
@@ -295,7 +295,7 @@
     },
     {
       "query": "Handover approval pattern",
-      "latencyMs": 34.45,
+      "latencyMs": 35.74,
       "hits": [
         {
           "id": 1443,
@@ -326,7 +326,7 @@
     },
     {
       "query": "DevExpress XtraReport binding",
-      "latencyMs": 34.32,
+      "latencyMs": 39.99,
       "hits": [
         {
           "id": 4008,
@@ -357,7 +357,7 @@
     },
     {
       "query": "Async await tránh block UI thread",
-      "latencyMs": 45.75,
+      "latencyMs": 47.99,
       "hits": [
         {
           "id": 164,
@@ -388,11 +388,11 @@
     },
     {
       "query": "EF6 DbContext và DbScope trong Application Service",
-      "latencyMs": 48.22,
+      "latencyMs": 56.08,
       "hits": [
         {
           "id": 3242,
-          "score": 43.5,
+          "score": 43.4,
           "question": "Sửa lỗi NullReferenceException khi gọi DeleteByIdAsync trong MaterialStockInAppService (RAF.Application): Bọc 100% các t"
         },
         {
@@ -419,7 +419,7 @@
     },
     {
       "query": "Lỗi CS1503 CS1061 sau refactor",
-      "latencyMs": 47.03,
+      "latencyMs": 53.03,
       "hits": [
         {
           "id": 23,
@@ -443,14 +443,14 @@
         },
         {
           "id": 2950,
-          "score": 43.5,
+          "score": 43.4,
           "question": "Khắc phục CS1061 ToRawSqlResult do file LinqToSqlExtensions.cs bị orphan khỏi Shared.Core.csproj"
         }
       ]
     },
     {
       "query": "Tối ưu hóa bộ nhớ và garbage collection",
-      "latencyMs": 49.27,
+      "latencyMs": 51.6,
       "hits": [
         {
           "id": 3874,
@@ -481,7 +481,7 @@
     },
     {
       "query": "Schema migration an toàn cho bảng lớn",
-      "latencyMs": 48.47,
+      "latencyMs": 49.98,
       "hits": [
         {
           "id": 4041,
@@ -490,7 +490,7 @@
         },
         {
           "id": 4006,
-          "score": 44,
+          "score": 43.9,
           "question": "What are the requirements for deploying AI Copilot tables?"
         },
         {
@@ -512,7 +512,7 @@
     },
     {
       "query": "Retrieval precision và hybrid search",
-      "latencyMs": 47.99,
+      "latencyMs": 50.55,
       "hits": [
         {
           "id": 3089,
@@ -543,7 +543,7 @@
     },
     {
       "query": "Working memory và session checkpoint",
-      "latencyMs": 47.26,
+      "latencyMs": 48.26,
       "hits": [
         {
           "id": 3300,
@@ -574,7 +574,7 @@
     },
     {
       "query": "Knowledge provenance và trust level",
-      "latencyMs": 50.18,
+      "latencyMs": 46.36,
       "hits": [
         {
           "id": 3990,
@@ -605,7 +605,7 @@
     },
     {
       "query": "Làm thế nào để tránh trộn tri thức giữa các dự án",
-      "latencyMs": 53.34,
+      "latencyMs": 49.84,
       "hits": [
         {
           "id": 4001,

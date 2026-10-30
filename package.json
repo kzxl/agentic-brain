@@ -24,7 +24,10 @@
     "verify:phase0": "node tools/verify-phase0.js",
     "verify:phase1": "node tools/verify-phase1.js",
     "verify:phase2": "node tools/verify-phase2.js",
+    "verify:phase3": "node tools/verify-phase3.js",
+    "bench:ann50k": "node tools/benchmark-ann-50k.js",
     "review:scope": "node tools/review-scope.js",
+    "trust:promote": "node tools/promote-trust.js",
     "baseline": "node tools/baseline.js",
     "export": "node maintenance/export.js",
     "import": "node maintenance/import.js"

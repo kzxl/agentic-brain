@@ -72,7 +72,7 @@ graph TD
 | Component | Technology | Description |
 | :--- | :--- | :--- |
 | **Embedding** | `@xenova/transformers` | BGE-M3 (1024-dimension, local inference, ~570MB) |
-| **Vector Database** | PostgreSQL 16 + `pgvector` | HNSW index. Phase 2 baseline: global p50 ~5.5 ms; ERP p50 ~48 ms on 3.4k rows. |
+| **Vector Database** | PostgreSQL 16 + `pgvector` | HNSW index. Production force-index: 3.4k global p50 ~8 ms, ERP ~49 ms; 50k forced HNSW ~57 ms. |
 | **Search Strategy** | Hybrid RRF | Reciprocal Rank Fusion of Cosine Vector Distance and Full-Text Search |
 | **LLM Backend** | Ollama / Cloud Fallback | Local Qwen / Llama models with optional cloud provider failover |
 | **Runtime** | Node.js (ES6+) | Standalone lightweight micro-services and CLI utilities |
@@ -127,6 +127,7 @@ npm run proxy
 - Set `SEMANTIC_API_TOKEN` to require `Authorization: Bearer <token>` on every route except `/health` and `/ready`.
 - Set `PROXY_API_TOKEN` for the OpenAI proxy.
 - Request bodies are capped at 1 MB (`MAX_BODY_BYTES`).
+- Retrieval runs with index-first planning (`RETRIEVAL_FORCE_INDEX=true`); set false to let pgvector's planner choose.
 - Unsafe defaults are off: `AUTO_QA_ENABLED=false`, `AME_WRITE=false`.
 - Knowledge writes are agent-side and explicit: `tools/ingest-knowledge.js` or `POST /ingest` with atomic JSON atoms. No local LLM re-analyzes summaries.
 - PostgreSQL is the canonical store; AME is not written unless explicitly enabled.
@@ -150,6 +151,7 @@ All commands support project-level multi-tenancy via `--project=<name>`.
 ```bash
 # 1. Pre-Fetch: Progressive L0 Index retrieval before task execution
 node tools/find-qa-context.js "Fix database deadlock during inventory sync" --project=erp --tags=inventory
+# Add --with-parent (or --full) to fetch the parent document for an atom.
 
 # 2. Inspect: Deep L1 examination of specific QA record
 node tools/view-qa.js 42
@@ -166,13 +168,16 @@ node tools/save-qa.js "How to structure WPF controllers?" "Always inherit from B
 # 5. Curation: Audit stale entries and semantic overlap (Dry-Run)
 node tools/curate.js --dry-run
 
-# 6. Archive Stale: tag dormant, low-value records
+# 6. Mark Stale: set status='stale' on dormant, low-value records
 node tools/curate.js --mark-stale --stale-days=60
 
 # 7. Review global-scope candidates (generic lessons written inside a project)
 node tools/review-scope.js
 node tools/review-scope.js --approve=123
 node tools/review-scope.js --reject=124
+
+# 8. Promote trust after deterministic verification
+node tools/promote-trust.js --id=123 --to=verified_fact --verifier=build --evidence=build:ok
 ```
 
 `save-qa` accepts an explicit scope when needed:
