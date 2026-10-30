@@ -1,0 +1,638 @@
+{
+  "generatedAt": "2026-10-30T04:13:33.133Z",
+  "commit": "77927b423a8084506be9bfd3852bf73bd4d2e07a",
+  "project": null,
+  "limit": 5,
+  "totalRecords": 3408,
+  "warmupMs": 1638,
+  "queries": 20,
+  "latency": {
+    "min": 301.34,
+    "p50": 339.99,
+    "p95": 377.2,
+    "max": 377.2,
+    "mean": 341.5
+  },
+  "results": [
+    {
+      "query": "Universe Architecture UA là gì và cấu trúc thư mục chuẩn",
+      "latencyMs": 365.52,
+      "hits": [
+        {
+          "id": 1,
+          "score": 75,
+          "question": "Universe Architecture (UA) là gì và cấu trúc thư mục chuẩn ra sao?"
+        },
+        {
+          "id": 3619,
+          "score": 41.4,
+          "question": "Established Enterprise API Design & Security Standards Specification conforming to Universe Architecture (UA v4.0), Clea"
+        },
+        {
+          "id": 195,
+          "score": 39.4,
+          "question": "Universe Architecture (UA) là gì và có triết lý thế nào?"
+        },
+        {
+          "id": 834,
+          "score": 38.9,
+          "question": "Làm thế nào để chuẩn hóa cấu trúc thư mục của một feature API theo đúng quy chuẩn Universe Architecture (UA) v4.0?"
+        },
+        {
+          "id": 188,
+          "score": 38.4,
+          "question": "Chuẩn cấu trúc Universe Architecture (UA) cho WinForms Modernization Refactoring là gì?"
+        }
+      ]
+    },
+    {
+      "query": "Cách phân tách Service Controller View trong WinForms",
+      "latencyMs": 354.5,
+      "hits": [
+        {
+          "id": 2194,
+          "score": 74.4,
+          "question": "Cách phân tách tính năng dùng chung Administrator thành các subfeatures độc lập trong WinForms MDS và giải quyết lỗi For"
+        },
+        {
+          "id": 4244,
+          "score": 45.4,
+          "question": "Tách API Sales MLG2 theo 5 features chuẩn WinForms (Dashboard, Order, Shipment, Invoice, Return)"
+        },
+        {
+          "id": 276,
+          "score": 42.8,
+          "question": "Khi thực hiện lưu dữ liệu có kèm cập nhật file đính kèm (File I/O) theo chuẩn Universe Architecture, ta có nên nhúng Fil"
+        },
+        {
+          "id": 3440,
+          "score": 40,
+          "question": "Tách các phương thức xem dạng cột sang partial class ColumnView.cs trong Service và Controller phân hệ QualityControl Re"
+        },
+        {
+          "id": 3885,
+          "score": 40,
+          "question": "Chuẩn hóa và tách Contracts, Application cho tính năng FormISO theo Universe Architecture v4.0"
+        }
+      ]
+    },
+    {
+      "query": "Lỗi deadlock khi commit transaction trong service inventory",
+      "latencyMs": 357.92,
+      "hits": [
+        {
+          "id": 3785,
+          "score": 47.6,
+          "question": "Tại sao lưu thông tin vị trí và ghi chú trên Thống kê tồn kho Bán thành phẩm bị treo?"
+        },
+        {
+          "id": 1756,
+          "score": 40,
+          "question": "Sửa lỗi treo deadlock Client Winform khi mở kho vật tư (Supplies StockOut) do constructor gọi sai endpoint cũ warehouse-"
+        },
+        {
+          "id": 3909,
+          "score": 40,
+          "question": "How to handle deadlock in ZeroUI.Desktop.Tests?"
+        },
+        {
+          "id": 145,
+          "score": 39.4,
+          "question": "Lỗi deadlock do .Result gọi async từ UI thread?"
+        },
+        {
+          "id": 1421,
+          "score": 38.9,
+          "question": "Tại sao form tạo mới ComponentList trong MDS bị treo và cách khắc phục?"
+        }
+      ]
+    },
+    {
+      "query": "BaseForm RunAfterShown pattern khởi tạo form",
+      "latencyMs": 336.82,
+      "hits": [
+        {
+          "id": 192,
+          "score": 74.4,
+          "question": "BaseForm là gì và lợi ích của pattern BaseForm trong WinForms MDS?"
+        },
+        {
+          "id": 193,
+          "score": 45.8,
+          "question": "Cách triển khai BaseForm và cờ _isInitializing chuẩn nhất?"
+        },
+        {
+          "id": 2909,
+          "score": 41.4,
+          "question": "Chuẩn hóa main Form frmOrder theo BaseForm Gold Standard (TargetId, RunAfterShownWithLoading, SaveWithBusyStateAsync, 5 "
+        },
+        {
+          "id": 4,
+          "score": 41,
+          "question": "BaseForm và RunAfterShown pattern hoạt động như thế nào?"
+        },
+        {
+          "id": 2505,
+          "score": 38.9,
+          "question": "Tối ưu hóa khởi tạo Form và nạp dữ liệu ngầm với BaseForm RunAfterShownWithLoading"
+        }
+      ]
+    },
+    {
+      "query": "BindingList DevExpress grid pattern",
+      "latencyMs": 319.74,
+      "hits": [
+        {
+          "id": 2953,
+          "score": 49.1,
+          "question": "Bổ sung bind lookup repProject từ GetProjectAndProductSourcesAsync trong frmStockOut để hiển thị cột Sản phẩm/dự án tron"
+        },
+        {
+          "id": 4224,
+          "score": 41.4,
+          "question": "Làm thế nào để sort mặc định theo cột Số Ref (Ref.No) cho DevExpress GridView có Grouping nhiều cấp trong Tiêu chuẩn Ngu"
+        },
+        {
+          "id": 4264,
+          "score": 41,
+          "question": "Khôi phục layout GridView DevExpress đè mất cấu hình Group Sort trong Designer"
+        },
+        {
+          "id": 607,
+          "score": 39.7,
+          "question": "Lam the nao de refactor tinh nang dinh kem file tu DataTable sang DTO nham tranh loi schema nhu AllowDBNull va ReadOnly "
+        },
+        {
+          "id": 416,
+          "score": 39.5,
+          "question": "Bind trực tiếp List<DTO> vào DevExpress GridView?"
+        }
+      ]
+    },
+    {
+      "query": "Cách check permission trong WinForms",
+      "latencyMs": 332.09,
+      "hits": [
+        {
+          "id": 1176,
+          "score": 40,
+          "question": "Làm thế nào để tránh ném raw exception do thiếu quyền (ví dụ: Bạn không có quyền xác nhận QC/Kho) gây crash hoặc dừng de"
+        },
+        {
+          "id": 3848,
+          "score": 40,
+          "question": "Kiểm tra và cảnh báo khi duyệt phiếu không có chi tiết trong MDS Inventory"
+        },
+        {
+          "id": 25,
+          "score": 39.4,
+          "question": "Permission và phân quyền trong MDS hoạt động ra sao?"
+        },
+        {
+          "id": 272,
+          "score": 38.9,
+          "question": "Quy trình rename UserControl hoac Form trong WinForms .NET Framework co-style csproj an toan?"
+        },
+        {
+          "id": 3203,
+          "score": 38.4,
+          "question": "Kiểm tra quyền Approve hoàn duyệt trong bảng tbSYS_PermissionsRules"
+        }
+      ]
+    },
+    {
+      "query": "Khi nào tạo DTO thay vì truyền param rời",
+      "latencyMs": 350.28,
+      "hits": [
+        {
+          "id": 251,
+          "score": 75,
+          "question": "Khi nào nên tạo DTO thay vì truyền param rời trong MDS WinForms service method?"
+        },
+        {
+          "id": 120,
+          "score": 39.5,
+          "question": "Cách dùng DTO (Data Transfer Object) trong MDS?"
+        },
+        {
+          "id": 893,
+          "score": 38.9,
+          "question": "Chuẩn hóa đặt tên class DTO viết hoa hoàn toàn (DTO thay vì Dto) cho phân hệ TSS/Warranty và cách xử lý lỗi thiếu Dapper"
+        },
+        {
+          "id": 3859,
+          "score": 38.3,
+          "question": "MOP Inventory: Tạo phiếu xuất kho NVL bấm lưu thì mất sạch dữ liệu chi tiết"
+        },
+        {
+          "id": 353,
+          "score": 37.9,
+          "question": "Pattern DTO tách L2S entity trong MDS WinForms (API-ready): Cụ thể là cách tạo ProjectMapExtensions.cs chứa extension me"
+        }
+      ]
+    },
+    {
+      "query": "Production module workflow và BOM",
+      "latencyMs": 332.14,
+      "hits": [
+        {
+          "id": 4243,
+          "score": 44.8,
+          "question": "Port OrderPlan và PackingDiary MLG2 sang WebAPI"
+        },
+        {
+          "id": 3902,
+          "score": 44.5,
+          "question": "MDS Lot Tracking: Thiếu liên kết MLG (Phiếu nhận hàng, YCTT), sai số lượng xuất vật tư thay vì định mức BOM theo máy, th"
+        },
+        {
+          "id": 4223,
+          "score": 42,
+          "question": "Thêm panel tìm kiếm và nhập chi tiết từ PO/YCMH MLG cho Kho Phụ kiện (frmAccessoriesStockIn) tương tự Kho NVL"
+        },
+        {
+          "id": 4287,
+          "score": 40.5,
+          "question": "How is the Simulation (Three Kingdoms management sim) repo architected, and what is its verification gate?"
+        },
+        {
+          "id": 34,
+          "score": 40,
+          "question": "Module Production (Sản xuất) có cấu trúc ra sao?"
+        }
+      ]
+    },
+    {
+      "query": "Inspection QC approval workflow",
+      "latencyMs": 330.23,
+      "hits": [
+        {
+          "id": 3870,
+          "score": 51.9,
+          "question": "Auto QC Inspection Request Creation for Primary Product StockIn in MOP"
+        },
+        {
+          "id": 4217,
+          "score": 46.3,
+          "question": "Đồng bộ caption nút Duyệt xử lý và gắn sự kiện Click cho ErrorLog & Proposal across QA PA DIPES"
+        },
+        {
+          "id": 137,
+          "score": 40,
+          "question": "QC Inspection Request trong MDS chạy thế nào?"
+        },
+        {
+          "id": 3869,
+          "score": 40,
+          "question": "QC Inspection Result & Request Code Prefix Mismatch in MOP"
+        },
+        {
+          "id": 385,
+          "score": 38.4,
+          "question": "Cách tối ưu hóa việc xử lý nhiều approve methods?"
+        }
+      ]
+    },
+    {
+      "query": "Handover approval pattern",
+      "latencyMs": 317.2,
+      "hits": [
+        {
+          "id": 1443,
+          "score": 40,
+          "question": "Chuẩn hóa endpoint phê duyệt và hoàn duyệt theo RESTful cho Product StockOut"
+        },
+        {
+          "id": 219,
+          "score": 39.4,
+          "question": "Khi implement ReApprove (hoan duyet) trong approval workflow, co nen null hoa idReceivedBy khong?"
+        },
+        {
+          "id": 3232,
+          "score": 38.9,
+          "question": "Khắc phục thuật toán sinh mã phiếu Bàn giao sản phẩm HandOver theo cấu trúc BGSP.MDSyy-xxxxxx"
+        },
+        {
+          "id": 2261,
+          "score": 38.4,
+          "question": "Tách API và UI cho phần Xác nhận đào tạo (Confirm) và Duyệt (Approval) trong HandOverFileControl"
+        },
+        {
+          "id": 3811,
+          "score": 38.3,
+          "question": "Hiện đại hóa luồng ghi nhật ký biến động UpdateAsync trong HandOver theo chuẩn ChangeLogHelper.GetDeltaLog: Thay thế hoà"
+        }
+      ]
+    },
+    {
+      "query": "DevExpress XtraReport binding",
+      "latencyMs": 316.72,
+      "hits": [
+        {
+          "id": 4008,
+          "score": 51.1,
+          "question": "How to fix the base class loading issue in DevExpress XtraReport?"
+        },
+        {
+          "id": 4220,
+          "score": 46.9,
+          "question": "DevExpress XtraReports chi tiết đơn hàng hiển thị text bị co sát mép viền trên (top border clipping) và có khoảng trống "
+        },
+        {
+          "id": 29,
+          "score": 40,
+          "question": "DevExpress XtraReport tạo và bind như thế nào?"
+        },
+        {
+          "id": 2136,
+          "score": 39.4,
+          "question": "Tối ưu hóa bind dữ liệu DevExpress XtraReport bằng DTO"
+        },
+        {
+          "id": 881,
+          "score": 38.4,
+          "question": "Làm thế nào để sửa lỗi DevExpress XtraReport chỉ hiển thị 1 dòng chi tiết sau khi refactor DataSource sang đối tượng Mas"
+        }
+      ]
+    },
+    {
+      "query": "Async await tránh block UI thread",
+      "latencyMs": 365.63,
+      "hits": [
+        {
+          "id": 164,
+          "score": 74.4,
+          "question": "async/await trong C# hoạt động thế nào ở mức sâu?"
+        },
+        {
+          "id": 852,
+          "score": 65.4,
+          "question": "Làm thế nào để áp dụng lazy load cho các lookup danh mục của form QC trong MDS?"
+        },
+        {
+          "id": 4176,
+          "score": 51.9,
+          "question": "How to implement a True Background Async architecture in WinForms?"
+        },
+        {
+          "id": 4184,
+          "score": 48.9,
+          "question": "Tại tầng WinForms Form/UserControl sử dụng ConfigureAwait(false) bên ngoài Task.Run khiến Async State Machine bị tước đo"
+        },
+        {
+          "id": 3401,
+          "score": 45.2,
+          "question": "Bỏ ngoại lệ throw khi thêm công việc đã có trong AddJobToDetailsAsync và đồng bộ ExecutionType trong SaveChangeJobExecut"
+        }
+      ]
+    },
+    {
+      "query": "EF6 DbContext và DbScope trong Application Service",
+      "latencyMs": 357.14,
+      "hits": [
+        {
+          "id": 3242,
+          "score": 43.5,
+          "question": "Sửa lỗi NullReferenceException khi gọi DeleteByIdAsync trong MaterialStockInAppService (RAF.Application): Bọc 100% các t"
+        },
+        {
+          "id": 3033,
+          "score": 42.9,
+          "question": "Fix EF6 System.Data.SqlClient provider not found exception in RAF"
+        },
+        {
+          "id": 2788,
+          "score": 40,
+          "question": "Added DbScope Dual-Mode DbContext Management Rule and LINQ EF6 Query Standard for MDS.Application to project-rule.md and"
+        },
+        {
+          "id": 3896,
+          "score": 39.5,
+          "question": "Trích xuất Contracts và Application cho VersionManagement phân hệ Administrator"
+        },
+        {
+          "id": 3582,
+          "score": 39.4,
+          "question": "Khắc phục NotSupportedException second operation started on this context"
+        }
+      ]
+    },
+    {
+      "query": "Lỗi CS1503 CS1061 sau refactor",
+      "latencyMs": 321.19,
+      "hits": [
+        {
+          "id": 23,
+          "score": 75,
+          "question": "Build bị lỗi CS1503 hoặc CS1061 sau refactor là do đâu?"
+        },
+        {
+          "id": 2968,
+          "score": 50.6,
+          "question": "Fixed CS1061 in frmProductType.cs and CS1929 in ucProductMonitor.cs"
+        },
+        {
+          "id": 2981,
+          "score": 47.8,
+          "question": "Fixed CS0266, CS0117, and CS1061 compilation errors in MaterialStockInAppService"
+        },
+        {
+          "id": 2886,
+          "score": 45.2,
+          "question": "Fixed CS1061 error in frmStockReturn.cs by removing legacy client-side IsDuplicate call"
+        },
+        {
+          "id": 2950,
+          "score": 43.5,
+          "question": "Khắc phục CS1061 ToRawSqlResult do file LinqToSqlExtensions.cs bị orphan khỏi Shared.Core.csproj"
+        }
+      ]
+    },
+    {
+      "query": "Tối ưu hóa bộ nhớ và garbage collection",
+      "latencyMs": 357.77,
+      "hits": [
+        {
+          "id": 3874,
+          "score": 49.6,
+          "question": "Rà soát và chuẩn hóa các hàm lỗi thời (Obsolete) trong Shared.Core khi tích hợp ZeroPrimitives"
+        },
+        {
+          "id": 3875,
+          "score": 48.9,
+          "question": "Dọn dẹp các lớp và hàm lỗi thời (Obsolete) không còn điểm gọi trong Shared.Core"
+        },
+        {
+          "id": 4070,
+          "score": 47.6,
+          "question": "What are the key performance optimizations mentioned in the provided walkthrough?"
+        },
+        {
+          "id": 4002,
+          "score": 43.4,
+          "question": "What are the key performance optimizations that need to be implemented in this project?"
+        },
+        {
+          "id": 3929,
+          "score": 42.9,
+          "question": "How can you partition large classes into smaller, more manageable parts?"
+        }
+      ]
+    },
+    {
+      "query": "Schema migration an toàn cho bảng lớn",
+      "latencyMs": 339.99,
+      "hits": [
+        {
+          "id": 4113,
+          "score": 48.3,
+          "question": "What is the quantization process in MDS database tools?"
+        },
+        {
+          "id": 4041,
+          "score": 45.7,
+          "question": "How does the database migration process work in this project?"
+        },
+        {
+          "id": 4006,
+          "score": 43.4,
+          "question": "What are the requirements for deploying AI Copilot tables?"
+        },
+        {
+          "id": 4186,
+          "score": 41.9,
+          "question": "Khi mở rộng bảng khách hàng MLG2 từ bảng cũ 3 cột (id, MaKhachHang, TenKhachHang) sang chuẩn MDS Master-Detail"
+        },
+        {
+          "id": 4007,
+          "score": 40.4,
+          "question": "How to securely deploy AI Copilot tables and data?"
+        }
+      ]
+    },
+    {
+      "query": "Retrieval precision và hybrid search",
+      "latencyMs": 362.44,
+      "hits": [
+        {
+          "id": 3956,
+          "score": 52.7,
+          "question": "What is the HybridEntityMatcher pattern and how does it work?"
+        },
+        {
+          "id": 3089,
+          "score": 50.6,
+          "question": "Sửa lỗi AmbiguousMatchException khi dùng Reflection lấy hàm LoadData trong UIHelper"
+        },
+        {
+          "id": 3432,
+          "score": 45.2,
+          "question": "[Workflow System]"
+        },
+        {
+          "id": 3933,
+          "score": 45.1,
+          "question": "What are the key components of this code snippet?"
+        },
+        {
+          "id": 3932,
+          "score": 44.5,
+          "question": "What is the main focus of this code snippet?"
+        }
+      ]
+    },
+    {
+      "query": "Working memory và session checkpoint",
+      "latencyMs": 334.12,
+      "hits": [
+        {
+          "id": 4287,
+          "score": 54.2,
+          "question": "How is the Simulation (Three Kingdoms management sim) repo architected, and what is its verification gate?"
+        },
+        {
+          "id": 3432,
+          "score": 48.4,
+          "question": "[Workflow System]"
+        },
+        {
+          "id": 3300,
+          "score": 47.8,
+          "question": "Giữ nguyên tham số ruleCode cho CommonLookupAppService GetEmployeesAsync và kiểm tra JOIN bảng chức năng"
+        },
+        {
+          "id": 4019,
+          "score": 43.4,
+          "question": "How does ZeroAgent utilize InMemoryReflexionMemory?"
+        },
+        {
+          "id": 1311,
+          "score": 40,
+          "question": "Chu?n ha RESTful (POST/PUT/PATCH/DELETE) cho các endpoint SAW Repair v d?ng b? Client WinForms. Tích h?p TryActionAsync "
+        }
+      ]
+    },
+    {
+      "query": "Knowledge provenance và trust level",
+      "latencyMs": 301.34,
+      "hits": [
+        {
+          "id": 3974,
+          "score": 52.7,
+          "question": "What are the key components of the VerifiedKnowledgeArbiter in ZeroAgent.Dialog?"
+        },
+        {
+          "id": 4134,
+          "score": 51.9,
+          "question": "What are the key features of ZeroOcr.Inference?"
+        },
+        {
+          "id": 3990,
+          "score": 50.4,
+          "question": "Tìm hiểu về quy trình phân tích và trả về JSON array các bài học?"
+        },
+        {
+          "id": 4136,
+          "score": 49.6,
+          "question": "What are the main components of ZeroOcr.Inference?"
+        },
+        {
+          "id": 4012,
+          "score": 48.3,
+          "question": "Nội dung chính của phần mềm này?"
+        }
+      ]
+    },
+    {
+      "query": "Làm thế nào để tránh trộn tri thức giữa các dự án",
+      "latencyMs": 377.2,
+      "hits": [
+        {
+          "id": 4010,
+          "score": 51.9,
+          "question": "How can I resolve the issue of synchronized mismatched Zero* cross-library dependencies across multiple projects?"
+        },
+        {
+          "id": 4001,
+          "score": 50.4,
+          "question": "What are the key bug patterns that need to be addressed in this project?"
+        },
+        {
+          "id": 3838,
+          "score": 48.9,
+          "question": "Tại sao nên lấy trực tiếp Chi phí thực tế và Chi phí dự toán từ bảng tbRD_Project_Plan trong Đánh giá nghiệm thu MOP R&D"
+        },
+        {
+          "id": 3882,
+          "score": 47.6,
+          "question": "DIPES Quản lý dự án không chọn được dự án chung và chỉ hiển thị dự án bên ngoài"
+        },
+        {
+          "id": 766,
+          "score": 40,
+          "question": "Tại sao không nên tạo project MDS.DTO dùng chung cho API và Client trong kiến trúc Universe Architecture?"
+        }
+      ]
+    }
+  ]
+}

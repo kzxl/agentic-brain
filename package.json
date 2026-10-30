@@ -18,6 +18,10 @@
     "dashboard": "node tools/dashboard.js",
     "stats": "node tools/stats.js",
     "setup": "node maintenance/setup.js",
+    "migrate": "node migrations/run.js",
+    "test": "node --test tests/",
+    "verify:phase0": "node tools/verify-phase0.js",
+    "baseline": "node tools/baseline.js",
     "export": "node maintenance/export.js",
     "import": "node maintenance/import.js"
   },
