@@ -7,3 +7,4 @@ data/*.jsonl
 data/.last-decision-cache.json
 *.ame
 data/backup/
+.project-rule.md
