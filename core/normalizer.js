@@ -1,41 +1,15 @@
 /**
- * normalizer.js — Turn a long summary into atomic, independently retrievable
- * knowledge atoms, and validate them before they reach the writer.
+ * normalizer.js — Validate agent-provided atomic knowledge.
  *
- * The LLM proposes atoms; deterministic validation decides what is stored.
+ * No LLM extraction. The calling agent already has the task context and must
+ * supply atoms. This module only parses, validates, deduplicates, and bounds
+ * the payload before it reaches the writer.
  */
-const { askLLM } = require('./llm-local');
-
 const MAX_ATOMS = 8;
 const MAX_ANSWER_CHARS = 1500;
 const MAX_QUESTION_CHARS = 300;
 const MIN_QUESTION_CHARS = 10;
 const MIN_ANSWER_CHARS = 20;
-const LONG_INPUT_CHARS = 600;
-
-const SYSTEM_PROMPT = `You extract atomic engineering lessons from a coding session.
-
-Return ONLY a JSON array. Do not wrap it in markdown.
-Each item must have this shape:
-{
-  "question": "natural search query a developer would type",
-  "answer": "concise lesson with root cause, fix, and invariant (max 150 words)",
-  "scope_hint": "project" | "global" | null,
-  "scope_confidence": 0.0,
-  "tags": ["specific", "multi-dimensional"],
-  "evidence": ["file:line", "test name", "commit", "error code"]
-}
-
-Rules:
-- One item = one lesson. Never merge multiple lessons into one item.
-- If the text contains several lessons, split them.
-- scope_hint = "project" when the lesson references a specific product, module,
-  table, file, or codebase. scope_hint = "global" only for reusable language,
-  framework, architecture, or process knowledge.
-- Ignore transient environment noise (VPN, expired tokens, disk full, missing
-  local binaries) and one-off UI text changes.
-- If there is no generalizable lesson, return [].
-- Return at most ${MAX_ATOMS} items.`;
 
 function fail(code, message) {
   const err = new Error(message);
@@ -56,27 +30,45 @@ function normalizeHint(value) {
 }
 
 function parseJsonArray(raw) {
-  if (typeof raw !== 'string') fail('E_EXTRACTOR_INVALID', 'extractor returned non-string');
-  let text = raw.trim();
-  text = text.replace(/```json\s*/gi, '').replace(/```/g, '').trim();
-
+  if (typeof raw !== 'string') fail('E_INVALID_PAYLOAD', 'payload must be a JSON string');
+  let text = raw.trim().replace(/```json\s*/gi, '').replace(/```/g, '').trim();
   const start = text.indexOf('[');
   const end = text.lastIndexOf(']');
-  if (start === -1 || end === -1 || end <= start) {
-    fail('E_EXTRACTOR_INVALID_JSON', 'extractor did not return a JSON array');
+  if (start === -1 || end <= start) {
+    fail('E_INVALID_PAYLOAD', 'payload does not contain a JSON array');
   }
-
   let parsed;
   try {
     parsed = JSON.parse(text.slice(start, end + 1));
   } catch (err) {
-    fail('E_EXTRACTOR_INVALID_JSON', `extractor JSON parse failed: ${err.message}`);
+    fail('E_INVALID_PAYLOAD', `invalid JSON: ${err.message}`);
+  }
+  if (!Array.isArray(parsed)) fail('E_INVALID_PAYLOAD', 'JSON is not an array');
+  return parsed;
+}
+
+/**
+ * Parse an agent payload: either a JSON array of atoms or
+ * { atoms: [...], project, scope, source_ref, confidence, tags, text }.
+ */
+function parseIngestPayload(raw) {
+  let parsed = raw;
+
+  if (typeof raw === 'string') {
+    const text = raw.trim().replace(/```json\s*/gi, '').replace(/```/g, '').trim();
+    try {
+      parsed = JSON.parse(text);
+    } catch (err) {
+      fail('E_INVALID_PAYLOAD', `invalid JSON payload: ${err.message}`);
+    }
   }
 
-  if (!Array.isArray(parsed)) {
-    fail('E_EXTRACTOR_INVALID', 'extractor JSON is not an array');
+  if (Array.isArray(parsed)) return { atoms: parsed };
+  if (parsed && typeof parsed === 'object' && Array.isArray(parsed.atoms)) return parsed;
+  if (parsed && typeof parsed === 'object' && parsed.question && parsed.answer) {
+    return { atoms: [parsed] };
   }
-  return parsed;
+  fail('E_INVALID_PAYLOAD', 'payload must be an atoms array or { atoms: [...] }');
 }
 
 function validateAtoms(inputAtoms, opts = {}) {
@@ -108,16 +100,13 @@ function validateAtoms(inputAtoms, opts = {}) {
     if (seen.has(key)) continue;
     seen.add(key);
 
-    const scopeHint = normalizeHint(raw.scope_hint ?? raw.scopeHint);
-    const scopeConfidence = Number.isFinite(Number(raw.scope_confidence ?? raw.scopeConfidence))
-      ? Math.max(0, Math.min(1, Number(raw.scope_confidence ?? raw.scopeConfidence)))
-      : 0.7;
-
     atoms.push({
       question,
       answer,
-      scopeHint,
-      scopeConfidence,
+      scopeHint: normalizeHint(raw.scope_hint ?? raw.scopeHint),
+      scopeConfidence: Number.isFinite(Number(raw.scope_confidence ?? raw.scopeConfidence))
+        ? Math.max(0, Math.min(1, Number(raw.scope_confidence ?? raw.scopeConfidence)))
+        : 0.7,
       tags: asStringArray(raw.tags),
       evidence: asStringArray(raw.evidence),
     });
@@ -126,37 +115,20 @@ function validateAtoms(inputAtoms, opts = {}) {
   return atoms;
 }
 
-async function extractAtomsWithLLM(text, opts = {}) {
-  const maxAtoms = opts.maxAtoms || MAX_ATOMS;
-  const project = opts.project || '(none)';
-  const prompt = `PROJECT: ${project}\n\n=== SESSION TEXT ===\n${text}\n\n=== EXTRACTION ===\nReturn the JSON array now (max ${maxAtoms} items).`;
-
-  const result = await askLLM(prompt, {
-    system: SYSTEM_PROMPT,
-    maxTokens: 2200,
-    temperature: 0.2,
-  });
-
-  return validateAtoms(parseJsonArray(result.text), { maxAtoms });
-}
-
 /**
- * Normalize a long text or a structured "problem | cause | fix" into atoms.
+ * Normalize provided knowledge. No LLM call.
  *
- * @param {object} input
- * @param {string} input.text
- * @param {boolean} [input.structured]
- * @param {string|null} [input.project]
- * @param {string|null} [input.sourceRef]
- * @param {Function} [opts.extractor]  injectable for tests
- * @returns {Promise<{atoms: object[], document: {text: string, sourceRef: string|null}}>}
+ * Accepted inputs:
+ *   - { atoms: [...] }
+ *   - { text: "...", structured: true }  // "problem | cause | fix"
+ *
+ * Raw, unstructured summaries are rejected with E_ATOMS_REQUIRED.
  */
 async function normalizeKnowledge(input = {}, opts = {}) {
   const text = String(input.text || '').trim();
-  const sourceRef = input.sourceRef ? String(input.sourceRef) : null;
-  const document = { text, sourceRef };
+  const document = { text, sourceRef: input.sourceRef ? String(input.sourceRef) : null };
 
-  if (input.atoms) {
+  if (Array.isArray(input.atoms)) {
     return { atoms: validateAtoms(input.atoms, opts), document };
   }
 
@@ -175,44 +147,16 @@ async function normalizeKnowledge(input = {}, opts = {}) {
     return { atoms, document };
   }
 
-  if (text.length < 40) {
-    fail('E_INPUT_TOO_SHORT', 'input must be at least 40 characters');
-  }
-
-  const extractor = opts.extractor || extractAtomsWithLLM;
-
-  try {
-    const rawAtoms = await extractor(text, { project: input.project || null, maxAtoms: opts.maxAtoms || MAX_ATOMS });
-    const atoms = validateAtoms(rawAtoms, opts);
-    if (atoms.length === 0 && text.length > LONG_INPUT_CHARS) {
-      fail('E_ATOMIC_REQUIRED', 'no atomic lesson extracted from a long text; refusing to store a long cluster');
-    }
-    return { atoms, document };
-  } catch (err) {
-    // Short notes may fall back to a single atom when the extractor is
-    // unavailable; long clusters must never be stored as one item.
-    if (text.length <= LONG_INPUT_CHARS && err.code !== 'E_ATOM_ANSWER_TOO_LONG') {
-      const atoms = validateAtoms([{
-        question: text.slice(0, 120),
-        answer: text,
-        scope_hint: null,
-        tags: [],
-        evidence: [],
-      }], opts);
-      return { atoms, document };
-    }
-    throw err;
-  }
+  fail('E_ATOMS_REQUIRED',
+    'agent must provide atomic JSON atoms; local LLM extraction was removed. Use tools/ingest-knowledge.js or POST /ingest.');
 }
 
 module.exports = {
   normalizeKnowledge,
   validateAtoms,
   parseJsonArray,
-  extractAtomsWithLLM,
+  parseIngestPayload,
   MAX_ATOMS,
   MAX_ANSWER_CHARS,
   MAX_QUESTION_CHARS,
-  LONG_INPUT_CHARS,
-  SYSTEM_PROMPT,
 };

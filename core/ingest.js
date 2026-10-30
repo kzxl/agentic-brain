@@ -18,8 +18,8 @@ const { captureKnowledge } = require('./knowledge');
  * @param {'project'|'global'} [input.scope]
  * @param {boolean} [input.structured]
  * @param {boolean} [input.createParent=true]
+ * @param {object[]} [input.atoms]  agent-provided atoms; no LLM is called
  * @param {object} [opts]
- * @param {Function} [opts.extractor]
  * @param {object} [opts.db]
  * @returns {Promise<{count:number, parentId:number|null, ids:number[]}>}
  */

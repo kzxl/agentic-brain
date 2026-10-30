@@ -13,7 +13,7 @@ const { qaRankingQuery, recipeRankingQuery, skillRankingQuery, tokenize } = requ
 const storageAme = require('./storage-ame');
 const { captureKnowledge } = require('./knowledge');
 const { resolveScope } = require('./scope');
-const { normalizeKnowledge, validateAtoms } = require('./normalizer');
+const { normalizeKnowledge, validateAtoms, parseIngestPayload } = require('./normalizer');
 const { ingestText } = require('./ingest');
 
 module.exports = {
@@ -29,5 +29,6 @@ module.exports = {
   resolveScope,
   normalizeKnowledge,
   validateAtoms,
+  parseIngestPayload,
   ingestText,
 };

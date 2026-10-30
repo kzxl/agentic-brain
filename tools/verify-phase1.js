@@ -5,7 +5,7 @@
  * Checks schema columns, scope backfill, atom/document separation, review queue,
  * deterministic scope resolution, and atomic normalization.
  */
-const { pool, qaRankingQuery, resolveScope, normalizeKnowledge } = require('../core');
+const { pool, qaRankingQuery, resolveScope, normalizeKnowledge, parseIngestPayload } = require('../core');
 
 const results = [];
 function check(name, ok, detail = '') {
@@ -93,6 +93,22 @@ async function main() {
     structured: true,
   });
   check('structured input normalizes to one atom', normalized.atoms.length === 1);
+
+  let rawRejected = false;
+  try {
+    await normalizeKnowledge({ text: 'raw walkthrough summary '.repeat(20) });
+  } catch (err) {
+    rawRejected = err.code === 'E_ATOMS_REQUIRED';
+  }
+  check('raw text requires agent-provided atoms', rawRejected);
+
+  const payload = parseIngestPayload(JSON.stringify({
+    atoms: [{
+      question: 'How should a generic service be structured?',
+      answer: 'Separate contracts, application, and infrastructure layers.',
+    }],
+  }));
+  check('agent JSON payload parses', payload.atoms.length === 1);
 
   const failed = results.filter(r => !r.ok);
   console.log(`\n[VERIFY] ${results.length - failed.length}/${results.length} checks passed`);
