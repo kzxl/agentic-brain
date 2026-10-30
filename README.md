@@ -4,6 +4,8 @@
 
 > Documentation: [docs/README.md](docs/README.md) · Remaining work: [docs/next-steps.md](docs/next-steps.md)
 
+**Status:** Phase 0–3 implemented (scope, atomic ingestion, project_id/trust, ANN-first, lifecycle, parent context). 27/27 tests; fresh-install migrations verified. Production hardening and Phase 4–5 are tracked in [next-steps.md](docs/next-steps.md).
+
 ---
 
 ## 🏛️ Ecosystem Architecture
@@ -12,19 +14,21 @@
 graph TD
     Agent(["Autonomous Coding Agent / IDE"]) -->|"1. PRE: Query Context"| CoreBridge["Agent Core Bridge (tools/brain.js)"]
     CoreBridge -->|"L0 Compact Index"| FindQA["find-qa-context.js"]
-    FindQA -->|"Search (Cosine + FTS)"| DB[("PostgreSQL + pgvector")]
-    
+    FindQA -->|"ANN + FTS + RRF"| DB[("PostgreSQL + pgvector")]
+
     Agent -->|"2. L1: Deep View (Selective)"| ViewQA["view-qa.js"]
-    ViewQA -->|"Full Context & History"| DB
-    
+    ViewQA -->|"Full Context, Parent, History"| DB
+
     Agent -->|"3. Execute & Verify Code"| Workspace["Codebase & Tests"]
-    
-    Agent -->|"4. POST: Harvest Lessons"| PostTask["post-task.js"]
-    PostTask -->|"Quality Guard Filter"| SaveQA["save-qa.js"]
-    SaveQA -->|"Semantic Dedup (>=85%)"| DB
-    
-    Cron(["Periodic Curation"])|"5. Lifecycle Audit"| Curate["curate.js"]
-    Curate -->|"Active -> Stale -> Archived"| DB
+
+    Agent -->|"4. POST: Atomic Atoms"| Ingest["ingest-knowledge.js"]
+    Ingest -->|"Validate + Dedup + Scope + Trust"| DB
+
+    Agent -->|"5. Review & Verify"| Review["review-scope.js / promote-trust.js"]
+    Review --> DB
+
+    Cron(["Periodic Curation"]) -->|"6. Status Lifecycle"| Curate["curate.js / qa-health.js"]
+    Curate -->|"active -> stale -> archived"| DB
 ```
 
 ---
@@ -55,13 +59,19 @@ graph TD
 - Retrieval only returns `status='active'` rows that are not expired.
 
 ### 3. Semantic Deduplication & Reinforcement ($\ge 85\%$)
-- Compares new knowledge embeddings against existing entries within the same project domain.
-- Instead of creating duplicate records, matches $\ge 85\%$ similarity strengthen hit counts, update guidance, and archive previous answers into `agent_qa_history`.
+- Compares new knowledge embeddings against existing entries within the same project.
+- Instead of creating duplicate records, matches $\ge 85\%$ similarity strengthen retrieval/use counters, update guidance, and archive previous answers into `agent_qa_history`.
 
 ### 4. Continuous Lifecycle Curation Engine
-- Classifies knowledge into **Active** (fresh or frequently referenced), **Stale** (>60 days unreferenced with $\le 1$ hit), and **Archived**.
-- Audits semantic overlap across records and flags consolidation candidates.
-- Safe `--dry-run` inspection before executing database archive or purge operations.
+- Uses the `status` column and `retrieval_count`/`use_count`, not the legacy `hit_count`.
+- Classifies knowledge into **Active**, **Stale** (no retrieval/use signal > 60 days), and **Archived** (planned retention job).
+- Audits semantic overlap across active atoms and flags consolidation candidates.
+- Safe `--dry-run` inspection before executing status mutations.
+
+### 4.1. Parent Context & ANN-first Retrieval
+- Atoms carry `parent_id`; `--with-parent` / `include_parent=true` fetches the parent document on demand.
+- Retrieval runs with index-first planning (`RETRIEVAL_FORCE_INDEX=true`) because pgvector's planner can choose Seq Scan at 50k.
+- 3.4k: global ~8 ms, ERP ~49 ms. 50k forced HNSW: ~57 ms (planner default ~522 ms).
 
 ### 5. Transparent OpenAI Proxy (`:3458`)
 - Simulates an OpenAI-compatible endpoint (`/v1/chat/completions`) wrapped around local LLMs (Ollama, vLLM).
@@ -75,7 +85,7 @@ graph TD
 | :--- | :--- | :--- |
 | **Embedding** | `@xenova/transformers` | BGE-M3 (1024-dimension, local inference, ~570MB) |
 | **Vector Database** | PostgreSQL 16 + `pgvector` | HNSW index. Production force-index: 3.4k global p50 ~8 ms, ERP ~49 ms; 50k forced HNSW ~57 ms. |
-| **Search Strategy** | Hybrid RRF | Reciprocal Rank Fusion of Cosine Vector Distance and Full-Text Search |
+| **Search Strategy** | Hybrid RRF | ANN candidate + full-text candidate + Reciprocal Rank Fusion |
 | **LLM Backend** | Ollama / Cloud Fallback | Local Qwen / Llama models with optional cloud provider failover |
 | **Runtime** | Node.js (ES6+) | Standalone lightweight micro-services and CLI utilities |
 
@@ -123,25 +133,28 @@ npm run proxy
 
 ---
 
-## 🔐 Security defaults (Phase 0)
+## 🔐 Security & runtime defaults
 
 - The server binds to `127.0.0.1` by default (`BIND_HOST`).
 - Set `SEMANTIC_API_TOKEN` to require `Authorization: Bearer <token>` on every route except `/health` and `/ready`.
 - Set `PROXY_API_TOKEN` for the OpenAI proxy.
 - Request bodies are capped at 1 MB (`MAX_BODY_BYTES`).
 - Retrieval runs with index-first planning (`RETRIEVAL_FORCE_INDEX=true`); set false to let pgvector's planner choose.
-- Unsafe defaults are off: `AUTO_QA_ENABLED=false`, `AME_WRITE=false`.
+- Unsafe defaults are off: `AME_WRITE=false`, no implicit harvest, no auto-answer on MISS.
 - Knowledge writes are agent-side and explicit: `tools/ingest-knowledge.js` or `POST /ingest` with atomic JSON atoms. No local LLM re-analyzes summaries.
 - PostgreSQL is the canonical store; AME is not written unless explicitly enabled.
 - Queries without a project scope return **only `project:global`**. Use `--all-projects` (CLI) or `all_projects=true` (HTTP) for explicit cross-project search.
 
-Verify the Phase 0/1 contract:
+Verify the Phase 0–3 contract:
 
 ```bash
 npm test
 npm run verify:phase0
 npm run verify:phase1
+npm run verify:phase2
+npm run verify:phase3
 npm run baseline
+npm run bench:ann50k
 ```
 
 ---
@@ -180,6 +193,10 @@ node tools/review-scope.js --reject=124
 
 # 8. Promote trust after deterministic verification
 node tools/promote-trust.js --id=123 --to=verified_fact --verifier=build --evidence=build:ok
+
+# 9. Lifecycle and benchmark jobs
+npm run verify:phase3
+npm run bench:ann50k
 ```
 
 `save-qa` accepts an explicit scope when needed:
@@ -199,6 +216,7 @@ node tools/save-qa.js "How should a generic service be structured?" "Separate co
 node [AgentOption]/tools/brain.js pre "task description"
 node [AgentOption]/tools/brain.js view 42
 node [AgentOption]/tools/brain.js post "problem | cause | fix"
+node [AgentOption]/tools/brain.js ingest --file=atoms.json
 node [AgentOption]/tools/brain.js curate --dry-run
 ```
 
