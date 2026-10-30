@@ -50,7 +50,7 @@ graph TD
 
 ### 5. Transparent OpenAI Proxy (`:3458`)
 - Simulates an OpenAI-compatible endpoint (`/v1/chat/completions`) wrapped around local LLMs (Ollama, vLLM).
-- Automatically intercepts prompt streams to inject relevant architectural context and harvest validated problem-solution pairs.
+- Automatically intercepts prompt streams to inject relevant architectural context and can optionally harvest knowledge (`PROXY_AUTO_HARVEST=false` by default; harvested items are observations with confidence 0.5).
 
 ---
 
@@ -59,7 +59,7 @@ graph TD
 | Component | Technology | Description |
 | :--- | :--- | :--- |
 | **Embedding** | `@xenova/transformers` | BGE-M3 (1024-dimension, local inference, ~570MB) |
-| **Vector Database** | PostgreSQL 16 + `pgvector` | HNSW index for high-speed sub-50ms cosine similarity |
+| **Vector Database** | PostgreSQL 16 + `pgvector` | HNSW index. Phase 0 baseline: ~340 ms p50 on 3.4k rows; ANN-first candidate generation lands in Phase 2. |
 | **Search Strategy** | Hybrid RRF | Reciprocal Rank Fusion of Cosine Vector Distance and Full-Text Search |
 | **LLM Backend** | Ollama / Cloud Fallback | Local Qwen / Llama models with optional cloud provider failover |
 | **Runtime** | Node.js (ES6+) | Standalone lightweight micro-services and CLI utilities |
@@ -93,14 +93,36 @@ npm install
 cp .env.example .env
 # Edit .env with your PostgreSQL credentials
 
-# 3. Initialize database schema
+# 3. Initialize database schema (migrations run automatically)
 npm run setup
+
+# 3.5. Optional: run migrations without re-indexing skills/workflows
+npm run migrate
 
 # 4. Start core service
 npm run start
 
 # 5. Start OpenAI proxy (separate terminal)
 npm run proxy
+```
+
+---
+
+## 🔐 Security defaults (Phase 0)
+
+- The server binds to `127.0.0.1` by default (`BIND_HOST`).
+- Set `SEMANTIC_API_TOKEN` to require `Authorization: Bearer <token>` on every route except `/health` and `/ready`.
+- Set `PROXY_API_TOKEN` for the OpenAI proxy.
+- Request bodies are capped at 1 MB (`MAX_BODY_BYTES`).
+- Unsafe defaults are off: `AUTO_QA_ENABLED=false`, `PROXY_AUTO_HARVEST=false`, `AME_WRITE=false`.
+- PostgreSQL is the canonical store; AME is not written unless explicitly enabled.
+
+Verify the Phase 0 contract:
+
+```bash
+npm test
+npm run verify:phase0
+npm run baseline
 ```
 
 ---
@@ -125,8 +147,8 @@ node tools/save-qa.js "How to structure WPF controllers?" "Always inherit from B
 # 5. Curation: Audit stale entries and semantic overlap (Dry-Run)
 node tools/curate.js --dry-run
 
-# 6. Archive Stale: Move dormant, low-value records to archive
-node tools/curate.js --archive-stale --days=60
+# 6. Archive Stale: tag dormant, low-value records
+node tools/curate.js --mark-stale --stale-days=60
 ```
 
 ---
