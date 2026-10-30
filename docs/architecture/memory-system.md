@@ -450,7 +450,7 @@ ALTER TABLE agent_qa_cache ADD COLUMN embedding_model TEXT DEFAULT 'bge-m3';
 
 - `project_id`: lấy tag `project:*`; nếu không có → `global` (đánh dấu review).
 - `memory_type`: `seed`/`teach`/`reviewed-*` → `semantic`; còn lại → `episodic`.
-- `trust_level`: `seed`/`teach`/`manual`/`reviewed-*` → `verified_fact` (cần review lại); `agent-direct` → `observation`; `auto-harvest`/proxy → `inference`.
+- `trust_level`: `seed`/`teach`/`manual`/`reviewed-*` → `verified_fact` (cần review lại); `agent-direct` → `observation`; `agent-provided atoms` → `hypothesis`/`inference`; proxy không tự ghi.
 - `content_hash`: `md5(lower(normalize(question || answer)))`.
 - `use_count`: giữ `hit_count` cũ nhưng đổi ngữ nghĩa; `retrieval_count` = `hit_count` hiện tại; reset `use_count=0` và chỉ tăng khi có feedback.
 

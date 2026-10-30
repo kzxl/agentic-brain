@@ -40,8 +40,8 @@ graph TD
 - Supports `--pinned` to protect architectural invariants from automated lifecycle decay.
 
 ### 2.1. Atomic Ingestion & Scope Resolution
-- Long session summaries are normalized into **atomic Q&A lessons**; each atom gets its own embedding and can be retrieved independently.
-- A parent `document` row keeps the original text; atoms link to it via `parent_id` / `source_ref`.
+- The calling agent provides **atomic Q&A lessons** as JSON; no local LLM re-analyzes the summary.
+- `tools/ingest-knowledge.js` validates each atom, gives it its own embedding, and links it to a parent `document` row via `parent_id` / `source_ref`.
 - Scope resolution is deterministic: explicit `--scope` wins, project-specific identifiers stay project-scoped, generic lessons inside a project become **global candidates** for review.
 - `save-qa` rejects answers over 2000 characters unless `--allow-long`; `post-task --direct` requires `<problem> | <cause> | <fix>`.
 - Review candidates with `node tools/review-scope.js`; approve promotes to global, reject keeps project scope.
@@ -57,7 +57,7 @@ graph TD
 
 ### 5. Transparent OpenAI Proxy (`:3458`)
 - Simulates an OpenAI-compatible endpoint (`/v1/chat/completions`) wrapped around local LLMs (Ollama, vLLM).
-- Automatically intercepts prompt streams to inject relevant architectural context and can optionally harvest knowledge (`PROXY_AUTO_HARVEST=false` by default; harvested items are observations with confidence 0.5).
+- Automatically intercepts prompt streams to inject relevant architectural context. It does **not** analyze or persist completions; the calling agent writes atoms through `/ingest` or `tools/ingest-knowledge.js`.
 
 ---
 
@@ -121,15 +121,17 @@ npm run proxy
 - Set `SEMANTIC_API_TOKEN` to require `Authorization: Bearer <token>` on every route except `/health` and `/ready`.
 - Set `PROXY_API_TOKEN` for the OpenAI proxy.
 - Request bodies are capped at 1 MB (`MAX_BODY_BYTES`).
-- Unsafe defaults are off: `AUTO_QA_ENABLED=false`, `PROXY_AUTO_HARVEST=false`, `SMART_AUTO_SAVE=false`, `AME_WRITE=false`.
+- Unsafe defaults are off: `AUTO_QA_ENABLED=false`, `AME_WRITE=false`.
+- Knowledge writes are agent-side and explicit: `tools/ingest-knowledge.js` or `POST /ingest` with atomic JSON atoms. No local LLM re-analyzes summaries.
 - PostgreSQL is the canonical store; AME is not written unless explicitly enabled.
 - Queries without a project scope return **only `project:global`**. Use `--all-projects` (CLI) or `all_projects=true` (HTTP) for explicit cross-project search.
 
-Verify the Phase 0 contract:
+Verify the Phase 0/1 contract:
 
 ```bash
 npm test
 npm run verify:phase0
+npm run verify:phase1
 npm run baseline
 ```
 
@@ -146,8 +148,11 @@ node tools/find-qa-context.js "Fix database deadlock during inventory sync" --pr
 # 2. Inspect: Deep L1 examination of specific QA record
 node tools/view-qa.js 42
 
-# 3. Post-Harvest: Validate and store technical lessons with Quality Guard
+# 3. Post-Harvest: Store one structured lesson
 node tools/post-task.js "Deadlock on RefInId | Missing composite index on (DocId, RefInId) | Added composite index and sorted lock acquisitions" --project=erp --tags=inventory,database
+
+# 3b. Atomic JSON ingestion (agent-provided atoms; no local LLM)
+node tools/ingest-knowledge.js --file=atoms.json --project=erp --tags=inventory,database
 
 # 4. Pin Invariant: Store non-decaying fundamental architectural standard
 node tools/save-qa.js "How to structure WPF controllers?" "Always inherit from BaseForm and use RunAfterShown." --project=erp --tags=csharp,wpf --pinned

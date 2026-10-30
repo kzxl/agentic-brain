@@ -19,7 +19,8 @@ Bộ tài liệu kiểm toán và thiết kế đích, lập ngày 2026-10-30 tr
 - `scope` / `scope_origin` / `scope_candidate` / `review_status` là cột thật.
 - Trigger DB suy scope cho các direct insert (seed/import/replay).
 - Scope deterministic; generic lesson trong project thành global candidate, cần review.
-- `auto-harvest` tách atom bằng LLM + validator; document cha + atom con.
+- Agent cung cấp atomic JSON; `ingest-knowledge` validate + lưu document cha + atom con.
+- Không còn local LLM đọc lại summary trong harvest.
 - Retrieval chỉ trả atom; document không lọt top-k.
 - `post-task --direct` bắt buộc format; `save-qa` chặn answer quá dài.
 - Chi tiết: [phase1-results.md](phase1-results.md).

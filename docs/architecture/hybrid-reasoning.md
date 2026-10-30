@@ -234,7 +234,7 @@ export interface ModelProvider {
 
 - JSON phải validate bằng schema (Ajv hoặc Zod).
 - Nếu sai: sửa 1 lần với thông báo lỗi; nếu vẫn sai, trả lỗi có kiểu, không lưu.
-- Không parse JSON bằng regex/`replace('```')` như `auto-harvest.js:82-99` và `evaluate-qa.js:64-70`.
+- Không parse JSON bằng regex/`replace('```')`; dùng schema validator trong `core/normalizer.js`.
 
 ### 4.5. Cost & observability
 
@@ -311,8 +311,8 @@ Sau vòng retrieval, tính:
 
 | Nguồn | Trust tối đa | Điều kiện |
 | :--- | :--- | :--- |
-| Proxy/LLM completion | `observation` | Luôn; confidence ≤0.6 |
-| `auto-harvest` LLM extraction | `inference` | Schema hợp lệ; quality guard pass |
+| Proxy/LLM completion | `observation` | Agent phải submit atoms; proxy không tự ghi |
+| Agent-provided atoms (`ingest-knowledge`) | `hypothesis` / `verified_fact` | Schema hợp lệ; evidence nếu verified |
 | `post-task --direct` | `hypothesis` | Có symptom/cause/fix |
 | `post-task` + compile/test evidence | `verified_fact` | Evidence ref bắt buộc |
 | User xác nhận | `user_decision` | Qua API/CLI explicit |
