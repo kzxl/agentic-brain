@@ -3,8 +3,8 @@
  * curate.js - Knowledge Lifecycle & Curation Engine
  *
  * Scans the QA repository for knowledge health:
- *   1. Active: Recently used or updated (< stale_days)
- *   2. Stale: Unused for > stale_days
+ *   1. Active: Recently retrieved/used or updated (< stale_days)
+ *   2. Stale: no retrieval/use signal for > stale_days (status column)
  *   3. Pinned: Golden invariants explicitly marked (protected from lifecycle changes)
  *   4. Overlapping: Pairs with cosine similarity > 0.88 eligible for consolidation
  *
@@ -29,10 +29,13 @@ async function curate() {
 
     // 1. Fetch summary metrics
     const rows = (await pool.query(`
-      SELECT id, question, answer_context, tags, hit_count, useful_count, updated_at,
-             EXTRACT(DAY FROM NOW() - updated_at)::int AS idle_days
+      SELECT id, question, tags, status,
+             COALESCE(retrieval_count, 0) AS retrieval_count,
+             COALESCE(use_count, 0) AS use_count,
+             COALESCE(last_retrieved_at, updated_at) AS last_signal,
+             EXTRACT(DAY FROM NOW() - COALESCE(last_retrieved_at, updated_at))::int AS idle_days
       FROM agent_qa_cache
-      WHERE 1=1 ${projectFilter}
+      WHERE status IN ('active', 'stale', 'archived') ${projectFilter}
       ORDER BY id ASC
     `)).rows;
 
@@ -44,6 +47,7 @@ async function curate() {
     let pinnedCount = 0;
     let activeCount = 0;
     let staleCount = 0;
+    let archivedCount = 0;
     const staleCandidates = [];
 
     for (const r of rows) {
@@ -53,7 +57,17 @@ async function curate() {
         continue;
       }
 
-      if (r.idle_days > STALE_DAYS && (r.hit_count === 0 || r.hit_count === null)) {
+      if (r.status === 'archived') {
+        archivedCount++;
+        continue;
+      }
+
+      if (r.status === 'stale') {
+        staleCount++;
+        continue;
+      }
+
+      if (r.idle_days > STALE_DAYS && r.retrieval_count === 0 && r.use_count === 0) {
         staleCount++;
         staleCandidates.push(r);
       } else {
@@ -65,24 +79,25 @@ async function curate() {
     console.log(`   • Total Records:   ${rows.length}`);
     console.log(`   • Pinned (Golden): ${pinnedCount}`);
     console.log(`   • Active:          ${activeCount}`);
-    console.log(`   • Stale Candidate: ${staleCount} (unused > ${STALE_DAYS} days)\n`);
+    console.log(`   • Stale:           ${staleCount} (no retrieval/use > ${STALE_DAYS} days)`);
+    console.log(`   • Archived:        ${archivedCount}\n`);
 
     if (staleCandidates.length > 0) {
-      console.log(`── Stale Candidates (Top 5 least active) ───────────────────────`);
+      console.log(`── Stale Candidates (Top 5) ────────────────────────────────────`);
       staleCandidates.slice(0, 5).forEach(r => {
-        console.log(`   [#${r.id}] (${r.idle_days} days idle, 0 hits) ${(r.question || '').substring(0, 70)}...`);
+        console.log(`   [#${r.id}] (${r.idle_days} days idle, 0 retrievals/uses) ${(r.question || '').substring(0, 70)}...`);
       });
 
       if (!DRY_RUN) {
         const staleIds = staleCandidates.map(r => r.id);
-        await pool.query(`
+        const res = await pool.query(`
           UPDATE agent_qa_cache
-          SET tags = array_append(tags, 'status:stale')
-          WHERE id = ANY($1::int[]) AND NOT ('status:stale' = ANY(tags))
+          SET status = 'stale', updated_at = NOW()
+          WHERE id = ANY($1::int[]) AND status = 'active'
         `, [staleIds]);
-        console.log(`\n   ✅ Applied 'status:stale' tag to ${staleIds.length} candidate(s).`);
+        console.log(`\n   ✅ Set status='stale' on ${res.rowCount} candidate(s).`);
       } else {
-        console.log(`\n   ℹ️ [DRY-RUN] No tags modified. Pass --mark-stale to apply.`);
+        console.log(`\n   ℹ️ [DRY-RUN] No status modified. Pass --mark-stale to apply.`);
       }
     }
 
@@ -94,6 +109,9 @@ async function curate() {
       FROM agent_qa_cache a
       JOIN agent_qa_cache b ON a.id < b.id
       WHERE 1 - (a.embedding <=> b.embedding) >= 0.88
+        AND a.status = 'active' AND b.status = 'active'
+        AND COALESCE(a.chunk_type, 'atom') = 'atom'
+        AND COALESCE(b.chunk_type, 'atom') = 'atom'
         ${PROJECT_ARG ? `AND a.project_id = '${PROJECT_ARG.replace(/'/g, "''")}' AND b.project_id = '${PROJECT_ARG.replace(/'/g, "''")}'` : ''}
       ORDER BY similarity DESC
       LIMIT 5;

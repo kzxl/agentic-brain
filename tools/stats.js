@@ -23,13 +23,16 @@ async function getStats() {
       SELECT
         COUNT(*)::int as total,
         AVG(confidence_score) as avg_confidence,
-        SUM(hit_count)::int as total_hits,
-        COUNT(CASE WHEN confidence_score < 0.5 THEN 1 END)::int as low_confidence,
-        COUNT(CASE WHEN hit_count = 0 THEN 1 END)::int as never_used,
-        COUNT(CASE WHEN hit_count > 0 THEN 1 END)::int as used,
+        SUM(COALESCE(retrieval_count, 0))::int as total_hits,
+        COUNT(CASE WHEN confidence_score < 0.5 AND status = 'active' THEN 1 END)::int as low_confidence,
+        COUNT(CASE WHEN COALESCE(retrieval_count, 0) = 0 AND COALESCE(use_count, 0) = 0 THEN 1 END)::int as never_used,
+        COUNT(CASE WHEN COALESCE(retrieval_count, 0) > 0 THEN 1 END)::int as used,
         COUNT(CASE WHEN tags IS NULL OR array_length(tags,1) IS NULL THEN 1 END)::int as no_tags,
-        COUNT(CASE WHEN hit_count = 0 AND created_at < NOW() - INTERVAL '60 days' THEN 1 END)::int as ultra_cold,
-        ROUND(100.0 * COUNT(CASE WHEN hit_count > 0 THEN 1 END) / NULLIF(COUNT(*), 0), 1) as use_pct,
+        COUNT(CASE WHEN COALESCE(retrieval_count, 0) = 0
+                    AND COALESCE(use_count, 0) = 0
+                    AND COALESCE(last_retrieved_at, created_at) < NOW() - INTERVAL '60 days'
+                    AND status = 'active' THEN 1 END)::int as ultra_cold,
+        ROUND(100.0 * COUNT(CASE WHEN COALESCE(retrieval_count, 0) > 0 THEN 1 END) / NULLIF(COUNT(*), 0), 1) as use_pct,
         COUNT(CASE WHEN updated_at > NOW() - INTERVAL '7 days' THEN 1 END)::int as recent_updates
       FROM agent_qa_cache
       WHERE 1=1 ${projectFilter}
@@ -46,7 +49,7 @@ async function getStats() {
     console.log('📚 QA Cache:');
     console.log(`   Total entries: ${qa.total}`);
     console.log(`   Avg confidence: ${parseFloat(qa.avg_confidence || 0).toFixed(2)}`);
-    console.log(`   Total hits: ${qa.total_hits}`);
+    console.log(`   Total retrievals: ${qa.total_hits}`);
     console.log(`   Low confidence (<0.5): ${qa.low_confidence}`);
     console.log(`   Never used: ${qa.never_used}`);
     console.log(`   Updated (7d): ${qa.recent_updates}\n`);

@@ -33,19 +33,21 @@ async function run() {
   console.log(`╚════════════════════════════════════════════════╝\n`);
 
   // ───────────────────────────────────────────────
-  // 1. Cold Entries (0 hits, old enough)
+  // 1. Cold Entries (0 retrievals + 0 uses, old enough, still active)
   // ───────────────────────────────────────────────
   const cold = await pool.query(`
     SELECT id, LEFT(question, 60) as question, source, confidence_score,
-      EXTRACT(DAY FROM NOW() - created_at)::int as age_days
+      EXTRACT(DAY FROM NOW() - COALESCE(last_retrieved_at, created_at))::int as age_days
     FROM agent_qa_cache
-    WHERE hit_count = 0
-      AND created_at < NOW() - INTERVAL '${COLD_DAYS} days'
+    WHERE COALESCE(retrieval_count, 0) = 0
+      AND COALESCE(use_count, 0) = 0
+      AND COALESCE(last_retrieved_at, created_at) < NOW() - INTERVAL '${COLD_DAYS} days'
+      AND status = 'active'
       AND confidence_score > ${DECAY_TO}
-    ORDER BY created_at ASC
+    ORDER BY COALESCE(last_retrieved_at, created_at) ASC
   `);
 
-  console.log(`── 1. Cold Entries (0 hits, >${COLD_DAYS} days, conf > ${DECAY_TO}) ──`);
+  console.log(`── 1. Cold Entries (0 retrievals/uses, >${COLD_DAYS} days, conf > ${DECAY_TO}) ──`);
   if (cold.rows.length === 0) {
     console.log(`   ✅ None found\n`);
   } else {
@@ -59,11 +61,13 @@ async function run() {
     if (!DRY_RUN) {
       const ids = cold.rows.map(r => r.id);
       const res = await pool.query(
-        `UPDATE agent_qa_cache SET confidence_score = $1, updated_at = NOW() WHERE id = ANY($2::int[])`,
+        `UPDATE agent_qa_cache
+         SET confidence_score = $1, status = 'stale', updated_at = NOW()
+         WHERE id = ANY($2::int[]) AND status = 'active'`,
         [DECAY_TO, ids]
       );
       fixCount += res.rowCount;
-      console.log(`\n   ✅ Decayed ${res.rowCount} entries`);
+      console.log(`\n   ✅ Decayed and marked stale: ${res.rowCount} entries`);
     }
     console.log();
   }
@@ -100,9 +104,12 @@ async function run() {
   // 3. Low Confidence Entries
   // ───────────────────────────────────────────────
   const lowConf = await pool.query(`
-    SELECT id, LEFT(question, 50) as question, confidence_score, source, hit_count
+    SELECT id, LEFT(question, 50) as question, confidence_score, source,
+           COALESCE(retrieval_count, 0) AS retrieval_count,
+           COALESCE(use_count, 0) AS use_count
     FROM agent_qa_cache
     WHERE confidence_score < 0.5
+      AND status = 'active'
     ORDER BY confidence_score ASC
   `);
 
@@ -112,7 +119,7 @@ async function run() {
   } else {
     console.log(`   ⚠️  ${lowConf.rows.length} entries need review or deletion\n`);
     lowConf.rows.forEach(r => {
-      console.log(`   [${r.id}] conf: ${r.confidence_score} | hits: ${r.hit_count} | src: ${r.source}`);
+      console.log(`   [${r.id}] conf: ${r.confidence_score} | retrievals: ${r.retrieval_count} | uses: ${r.use_count} | src: ${r.source}`);
       console.log(`         ${r.question}...`);
       issues.push({ id: r.id, type: 'low_conf', action: 'review/delete' });
     });
@@ -125,15 +132,15 @@ async function run() {
   const srcQuality = await pool.query(`
     SELECT source,
       COUNT(*) as total,
-      COUNT(CASE WHEN hit_count > 0 THEN 1 END) as used,
-      ROUND(100.0 * COUNT(CASE WHEN hit_count > 0 THEN 1 END) / COUNT(*), 1) as usage_pct,
-      SUM(hit_count) as total_hits
+      COUNT(CASE WHEN COALESCE(retrieval_count, 0) > 0 THEN 1 END) as used,
+      ROUND(100.0 * COUNT(CASE WHEN COALESCE(retrieval_count, 0) > 0 THEN 1 END) / COUNT(*), 1) as usage_pct,
+      SUM(COALESCE(retrieval_count, 0)) as total_hits
     FROM agent_qa_cache
     GROUP BY source ORDER BY usage_pct DESC
   `);
 
   console.log(`── 4. Source Quality Summary ──`);
-  console.log(`   ${'Source'.padEnd(30)} ${'Total'.padStart(5)} ${'Used'.padStart(5)} ${'Usage%'.padStart(7)} ${'Hits'.padStart(5)}`);
+  console.log(`   ${'Source'.padEnd(30)} ${'Total'.padStart(5)} ${'Used'.padStart(5)} ${'Usage%'.padStart(7)} ${'Retrievals'.padStart(10)}`);
   console.log(`   ${'─'.repeat(55)}`);
   srcQuality.rows.forEach(r => {
     const bar = '█'.repeat(Math.round(parseFloat(r.usage_pct) / 5));
@@ -160,9 +167,12 @@ async function run() {
   // ───────────────────────────────────────────────
   const usefulness = await pool.query(`
     SELECT 
-      COUNT(CASE WHEN COALESCE(useful_count,0) > 0 THEN 1 END) as proven_useful,
-      COUNT(CASE WHEN hit_count >= 3 AND COALESCE(useful_count,0) = 0 THEN 1 END) as high_hit_never_useful,
-      COUNT(CASE WHEN hit_count = 0 AND created_at < NOW() - INTERVAL '60 days' THEN 1 END) as ultra_cold,
+      COUNT(CASE WHEN COALESCE(use_count, 0) > 0 THEN 1 END) as proven_useful,
+      COUNT(CASE WHEN COALESCE(retrieval_count, 0) >= 3 AND COALESCE(use_count, 0) = 0 THEN 1 END) as high_hit_never_useful,
+      COUNT(CASE WHEN COALESCE(retrieval_count, 0) = 0
+                  AND COALESCE(use_count, 0) = 0
+                  AND COALESCE(last_retrieved_at, created_at) < NOW() - INTERVAL '60 days'
+                  AND status = 'active' THEN 1 END) as ultra_cold,
       COUNT(*) as total
     FROM agent_qa_cache
   `);
@@ -170,8 +180,8 @@ async function run() {
   const u = usefulness.rows[0];
   console.log(`── 6. Usefulness Analysis ──`);
   console.log(`   Proven useful (marked):     ${u.proven_useful}`);
-  console.log(`   High-hit but never useful:  ${u.high_hit_never_useful}`);
-  console.log(`   Ultra-cold (>60d, 0 hits):  ${u.ultra_cold}`);
+  console.log(`   High-retrieval never useful: ${u.high_hit_never_useful}`);
+  console.log(`   Ultra-cold (>60d, no signal): ${u.ultra_cold}`);
 
   if (parseInt(u.high_hit_never_useful) > 0) {
     console.log(`   ⚠️ ${u.high_hit_never_useful} entries retrieved 3+ times but never marked useful`);
@@ -181,9 +191,12 @@ async function run() {
   // Auto-decay ultra-cold entries (>60 days, 0 everything)
   if (parseInt(u.ultra_cold) > 0 && !DRY_RUN) {
     const decayRes = await pool.query(`
-      UPDATE agent_qa_cache SET confidence_score = LEAST(confidence_score, 0.5)
-      WHERE hit_count = 0 AND COALESCE(useful_count, 0) = 0
-        AND created_at < NOW() - INTERVAL '60 days'
+      UPDATE agent_qa_cache
+      SET confidence_score = LEAST(confidence_score, 0.5), updated_at = NOW()
+      WHERE COALESCE(retrieval_count, 0) = 0
+        AND COALESCE(use_count, 0) = 0
+        AND COALESCE(last_retrieved_at, created_at) < NOW() - INTERVAL '60 days'
+        AND status = 'active'
         AND confidence_score > 0.5
     `);
     if (decayRes.rowCount > 0) {
@@ -220,6 +233,7 @@ async function run() {
            )
       )
       AND confidence_score > 0.0
+      AND status = 'active'
   `);
 
   console.log(`── 7. Obsolete Rules Check ──`);

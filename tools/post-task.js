@@ -151,6 +151,9 @@ try {
     if (FULL_TAGS) saveArgs.push(`--tags=${FULL_TAGS}`);
     if (PROJECT_ARG) saveArgs.push(`--project=${PROJECT_ARG}`);
     if (PINNED) saveArgs.push('--pinned');
+    for (const arg of process.argv.filter(a => /^--(trust|verifier|evidence|scope|valid-from|valid-to)=/.test(a))) {
+      saveArgs.push(arg);
+    }
 
     execFileSync('node', saveArgs, {
       encoding: 'utf-8',
