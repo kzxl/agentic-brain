@@ -22,22 +22,28 @@
  * @returns {{ text: string, params: (tokens, vec, tags, rawQuery) => any[] }}
  */
 function qaRankingQuery(opts = {}) {
-  const limit = opts.limit || 3;
-  const minSim = opts.minSimilarity || 0.35;
+  const limit = Math.max(1, Math.min(100, parseInt(opts.limit, 10) || 3));
+  const minSim = Number.isFinite(Number(opts.minSimilarity))
+    ? Math.max(0, Math.min(1, Number(opts.minSimilarity)))
+    : 0.35;
   const withTags = opts.withTags !== false;
 
   const tagFilter = withTags ? '($2::text[] IS NULL OR tags && $2::text[])' : 'TRUE';
+  const projectFilter = withTags
+    ? "($5::text IS NULL OR $5::text = ANY(tags) OR 'project:global' = ANY(tags))"
+    : "($4::text IS NULL OR $4::text = ANY(tags) OR 'project:global' = ANY(tags))";
   const limitParam = withTags ? '$4' : '$3';
   const rawQueryIdx = withTags ? '$3' : '$2';
 
   const text = `
     WITH base_filter AS (
-      SELECT id, question, answer_context, confidence_score, tags, updated_at, useful_count,
+      SELECT id, question, answer_context, confidence_score, tags, updated_at, use_count,
         1 - (embedding <=> $1::vector) AS vector_similarity,
         ts_rank_cd(to_tsvector('simple', COALESCE(question, '') || ' ' || COALESCE(answer_context, '')), plainto_tsquery('simple', ${rawQueryIdx})) AS fts_score,
         GREATEST(1.0 - LEAST(EXTRACT(EPOCH FROM NOW() - updated_at) / (86400.0 * 180), 0.3), 0.7) AS freshness
       FROM agent_qa_cache
       WHERE ${tagFilter}
+        AND ${projectFilter}
     ),
     ranked AS (
       SELECT *,
@@ -51,7 +57,7 @@ function qaRankingQuery(opts = {}) {
         ((1.0 / (60.0 + vector_rank)) + (CASE WHEN fts_score > 0 THEN 1.0 / (60.0 + fts_rank) ELSE 0 END)) * 30.5
       ) * freshness
       + confidence_score * 0.05
-      + LEAST(COALESCE(useful_count, 0)::float / 5.0, 1.0) * 0.05
+      + LEAST(COALESCE(use_count, 0)::float / 5.0, 1.0) * 0.05
       AS final_score
     FROM ranked
     ORDER BY final_score DESC
@@ -62,18 +68,19 @@ function qaRankingQuery(opts = {}) {
     text,
     /**
      * Build params array for pool.query()
-     * @param {string[]} tokens - keyword tokens (kept for backward schema but not actively used in sql anymore, kept for positional mapping)
-     * @param {string} vecJson - JSON.stringify(embedding vector)
-     * @param {string[]|null} tags - tag filter array or null
-     * @param {string} rawQuery - the original query string
-     * @returns {any[]}
+     *
+     * @param {string[]} tokens
+     * @param {string} vecJson
+     * @param {string[]|null} tags
+     * @param {string} rawQuery
+     * @param {string|null} project  project name (without the `project:` prefix)
      */
-    params(tokens, vecJson, tags = null, rawQuery = '') {
+    params(tokens, vecJson, tags = null, rawQuery = '', project = null) {
       const q = rawQuery || (tokens || []).join(' ');
       if (withTags) {
-        return [vecJson, tags, q, limit];
+        return [vecJson, tags, q, limit, project];
       }
-      return [vecJson, q, limit];
+      return [vecJson, q, limit, project];
     }
   };
 }

@@ -64,13 +64,7 @@ const TAGS = (() => {
   
   // Combine all raw tags
   const combinedRaw = [...new Set([...raw, ...gitTags, ...textTags])];
-  const normalized = normalizeTags(combinedRaw);
-  
-  // Apply project filter if specified
-  if (PROJECT && !normalized.includes(`project:${PROJECT}`)) {
-    normalized.push(`project:${PROJECT}`);
-  }
-  return normalized;
+  return normalizeTags(combinedRaw);
 })();
 const LIMIT = (() => {
   const arg = process.argv.find(a => a.startsWith('--limit='));
@@ -125,14 +119,14 @@ async function resolveActiveBackend() {
 /**
  * Search DB với 1 query, return top rows
  */
-async function searchOne(question, tagsFilter, activeBackend) {
+async function searchOne(question, tagsFilter, activeBackend, project) {
   if (activeBackend === 'ame') {
     try {
       return await storageAme.queryContext(question, {
         limit: 5,
         minSimilarity: MIN_SCORE,
         tags: tagsFilter,
-        project: PROJECT
+        project
       });
     } catch (e) {
       return [];
@@ -145,8 +139,11 @@ async function searchOne(question, tagsFilter, activeBackend) {
   const vec = await embed(query);
 
   const filterTags = tagsFilter.length > 0 ? tagsFilter : null;
-  const qq = qaRankingQuery({ limit: 5, minSimilarity: MIN_SCORE });
-  const result = await pool.query(qq.text, qq.params(tokens, JSON.stringify(vec), filterTags));
+  const qq = qaRankingQuery({ limit: 5, minSimilarity: MIN_SCORE, project });
+  const result = await pool.query(
+    qq.text,
+    qq.params(tokens, JSON.stringify(vec), filterTags, query, project)
+  );
 
   return result.rows;
 }
@@ -169,7 +166,7 @@ async function findQAContext(taskDescription) {
 
   for (const q of queries) {
     try {
-      const rows = await searchOne(q, TAGS, activeBackend);
+      const rows = await searchOne(q, TAGS, activeBackend, PROJECT);
       rows.forEach((row, index) => {
         const rank = index + 1;
         const crossRrfAdd = 1.0 / (60.0 + rank);
@@ -206,7 +203,11 @@ async function findQAContext(taskDescription) {
   if (ids.length > 0 && activeBackend === 'postgres') {
     try {
       await pool.query(
-        `UPDATE agent_qa_cache SET hit_count = hit_count + 1 WHERE id = ANY($1::int[])`,
+        `UPDATE agent_qa_cache
+         SET hit_count = hit_count + 1,
+             retrieval_count = retrieval_count + 1,
+             last_retrieved_at = NOW()
+         WHERE id = ANY($1::int[])`,
         [ids]
       );
     } catch {}

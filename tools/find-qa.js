@@ -19,11 +19,9 @@ const PROJECT = (() => {
 const TAGS = (() => {
   const arg = process.argv.find(a => a.startsWith('--tags='));
   const raw = arg ? arg.split('=')[1].split(',').map(t => t.trim()).filter(t => t) : [];
-  const normalized = normalizeTags(raw);
-  // Inject project tag nếu có
-  if (PROJECT && !normalized.includes(`project:${PROJECT}`)) normalized.push(`project:${PROJECT}`);
-  return normalized;
+  return normalizeTags(raw);
 })();
+const NO_AUTO = process.argv.includes('--no-auto');
 
 async function findQA(question) {
   if (!question || question.trim().length === 0) {
@@ -62,7 +60,8 @@ async function findQA(question) {
   if (await isServerUp()) {
     let isFirstToken = true;
     const tagsParam = TAGS.length > 0 ? `&tags=${encodeURIComponent(TAGS.join(','))}` : '';
-    const serverResult = await streamServer(`/find-qa?q=${encodeURIComponent(question)}&mode=${MODE}${tagsParam}&stream=true`, (token) => {
+    const projectParam = PROJECT ? `&project=${encodeURIComponent(PROJECT)}` : '';
+    const serverResult = await streamServer(`/find-qa?q=${encodeURIComponent(question)}&mode=${MODE}${tagsParam}${projectParam}&stream=true`, (token) => {
       if (isFirstToken) {
         console.log(`[QA SMART] (server: fast, stream: active)`);
         console.log(`Q: ${question}`);
@@ -98,15 +97,17 @@ async function findQA(question) {
 
   try {
     const filterTags = TAGS.length > 0 ? TAGS : null;
-    const qq = qaRankingQuery({ limit: 3 });
-    const result = await pool.query(qq.text, qq.params(tokens, JSON.stringify(vec), filterTags));
+    const qq = qaRankingQuery({ limit: 3, project: PROJECT });
+    const result = await pool.query(qq.text, qq.params(tokens, JSON.stringify(vec), filterTags, query, PROJECT));
     if (result.rows.length === 0) {
-      if (process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY) {
+      if (!NO_AUTO && config.autoQa && (process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY)) {
         try {
           const autoQaPath = path.join(__dirname, 'auto-qa.js');
-          execFileSync('node', [autoQaPath, question], { stdio: 'ignore' });
+          const autoArgs = [autoQaPath, question];
+          if (PROJECT) autoArgs.push(`--project=${PROJECT}`);
+          execFileSync('node', autoArgs, { stdio: 'ignore' });
           const findQaPath = path.join(__dirname, 'find-qa.js');
-          const out = execFileSync('node', [findQaPath, question, '--raw'], { encoding: 'utf-8' });
+          const out = execFileSync('node', [findQaPath, question, '--raw', '--no-auto'], { encoding: 'utf-8' });
           console.log(out.trim());
         } catch (e) {
           console.log(`[QA MISS] "${question}"`);
@@ -119,7 +120,10 @@ async function findQA(question) {
     }
 
     const top = result.rows[0];
-    await pool.query('UPDATE agent_qa_cache SET hit_count = hit_count + 1 WHERE id = $1', [top.id]);
+    await pool.query(
+      'UPDATE agent_qa_cache SET hit_count = hit_count + 1, retrieval_count = retrieval_count + 1, last_retrieved_at = NOW() WHERE id = $1',
+      [top.id]
+    );
 
     pool.query(
       'INSERT INTO agent_qa_querylog (query, top_result_id, score, tags, tokens_saved) VALUES ($1, $2, $3, $4, $5)',

@@ -16,7 +16,7 @@
  *   3. Tách thành atomic Q&A pairs
  *   4. Gắn tags phù hợp
  */
-const { pool, askLLM, embed, extractKeywords } = require('../core');
+const { pool, askLLM, captureKnowledge } = require('../core');
 const fs = require('fs');
 const path = require('path');
 
@@ -28,6 +28,10 @@ const TAGS = (() => {
 })();
 const FILE_ARG = process.argv.find(a => a.startsWith('--file='))?.split('=')[1];
 const TEXT_ARG = process.argv[2];
+const PROJECT = (() => {
+  const tag = TAGS.find(t => t.startsWith('project:'));
+  return tag ? tag.slice('project:'.length) : null;
+})();
 
 const SYSTEM_PROMPT = `You are a technical knowledge extraction expert for developer coding sessions.
 
@@ -145,39 +149,23 @@ async function harvest(inputText) {
 
   for (const p of validPairs) {
     try {
-      const searchText = `${p.question} ${p.answer}`.toLowerCase();
-      const vec = await embed(searchText);
-      const keywords = extractKeywords(searchText);
-
-      // Check existing
-      const existing = await pool.query(
-        'SELECT id FROM agent_qa_cache WHERE question_hash = md5(lower($1))',
-        [p.question]
-      );
-
-      if (existing.rows.length > 0) {
-        console.log(`  [~] Updated existing QA #${existing.rows[0].id}`);
-        await pool.query(`
-          UPDATE agent_qa_cache 
-          SET answer_context=$1, search_text=$2, keywords=$3, embedding=$4,
-              source='auto-harvest', tags=$5, confidence_score=0.9, updated_at=NOW()
-          WHERE id=$6
-        `, [p.answer, searchText, keywords, JSON.stringify(vec), p.tags, existing.rows[0].id]);
-      } else {
-        const res = await pool.query(`
-          INSERT INTO agent_qa_cache (question, answer_context, search_text, keywords, embedding, source, category, tags, confidence_score)
-          VALUES ($1, $2, $3, $4, $5, 'auto-harvest', 'general', $6, 0.9)
-          RETURNING id
-        `, [p.question, p.answer, searchText, keywords, JSON.stringify(vec), p.tags]);
-        console.log(`  [+] Saved QA #${res.rows[0].id}`);
-      }
+      const result = await captureKnowledge({
+        question: p.question,
+        answer: p.answer,
+        source: 'auto-harvest',
+        confidence: 0.6,
+        tags: p.tags,
+        project: PROJECT,
+      });
+      const label = result.status === 'updated' ? `[~] Updated existing QA #${result.id}` : `[+] Saved QA #${result.id}`;
+      console.log(`  ${label}`);
       saved++;
     } catch (err) {
       console.error(`  [!] Error saving "${p.question.substring(0, 40)}...": ${err.message}`);
     }
   }
 
-  console.log(`\n[DONE] ${saved}/${validPairs.length} QA pairs saved (source: auto-harvest, conf: 0.9)`);
+  console.log(`\n[DONE] ${saved}/${validPairs.length} QA pairs saved (source: auto-harvest, conf: 0.6)`);
 }
 
 // Entry

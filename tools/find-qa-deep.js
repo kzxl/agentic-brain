@@ -19,6 +19,10 @@ const { pool, embed, askLocal, tokenize, qaRankingQuery } = require('../core');
 
 const MAX_DEPTH = 3; // Prevent infinite loops
 const MODE = process.argv.includes('--raw') ? 'raw' : 'smart';
+const PROJECT = (() => {
+  const arg = process.argv.find(a => a.startsWith('--project='));
+  return arg ? arg.split('=')[1].trim().toLowerCase() : null;
+})();
 
 async function findQADeep(question, depth = 0) {
   if (depth >= MAX_DEPTH) {
@@ -33,8 +37,8 @@ async function findQADeep(question, depth = 0) {
   const tokens = tokenize(query);
   const vec = await embed(query);
 
-  const qq = qaRankingQuery({ limit: 1 });
-  const result = await pool.query(qq.text, qq.params(tokens, JSON.stringify(vec), null));
+  const qq = qaRankingQuery({ limit: 1, project: PROJECT });
+  const result = await pool.query(qq.text, qq.params(tokens, JSON.stringify(vec), null, query, PROJECT));
 
   if (result.rows.length === 0) {
     console.log(`${'  '.repeat(depth)}[MISS] No answer found`);
@@ -42,7 +46,10 @@ async function findQADeep(question, depth = 0) {
   }
 
   const qa = result.rows[0];
-  await pool.query('UPDATE agent_qa_cache SET hit_count = hit_count + 1 WHERE id = $1', [qa.id]);
+  await pool.query(
+    'UPDATE agent_qa_cache SET hit_count = hit_count + 1, retrieval_count = retrieval_count + 1, last_retrieved_at = NOW() WHERE id = $1',
+    [qa.id]
+  );
 
   console.log(`${'  '.repeat(depth)}[HIT] QA #${qa.id} (score: ${(qa.final_score * 100).toFixed(0)}%)`);
 

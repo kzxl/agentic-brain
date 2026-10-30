@@ -134,9 +134,10 @@ try {
       question,
       answer,
       '--source=agent-direct',
-      '--confidence=1.0',
+      '--confidence=0.7',
     ];
     if (FULL_TAGS) saveArgs.push(`--tags=${FULL_TAGS}`);
+    if (PROJECT_ARG) saveArgs.push(`--project=${PROJECT_ARG}`);
     if (PINNED) saveArgs.push('--pinned');
 
     execFileSync('node', saveArgs, {
