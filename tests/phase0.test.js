@@ -9,7 +9,6 @@ test('Phase 0 defaults are safe', () => {
   assert.equal(config.ame.write, false);
   assert.equal(config.server.host, '127.0.0.1');
   assert.ok(config.server.maxBodyBytes > 0);
-  assert.equal(config.autoQa, false);
 });
 
 test('ranking query enforces project scope', () => {

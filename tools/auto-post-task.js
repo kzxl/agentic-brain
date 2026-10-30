@@ -28,9 +28,10 @@ Usage:
   process.exit(1);
 }
 
-// 1. Resolve project info
+// 1. Resolve project info (CLI override wins)
 const projectInfo = getProjectInfo(process.cwd());
-const projectName = projectInfo.projectName;
+const PROJECT_OVERRIDE = process.argv.find(a => a.startsWith('--project='))?.split('=')[1]?.trim().toLowerCase();
+const projectName = PROJECT_OVERRIDE || projectInfo.projectName;
 
 // 2. Resolve & merge multi-dimensional tags (Domain + Technical)
 const customTagsArg = process.argv.find(a => a.startsWith('--tags='));
@@ -38,15 +39,18 @@ const customTags = customTagsArg ? customTagsArg.split('=')[1].split(',').map(t 
 
 const tagSet = new Set();
 
-// Add domain tag
-if (projectInfo.domain) {
-  tagSet.add(projectInfo.domain);
-} else {
-  tagSet.add('production'); // fallback domain
+// When the agent overrides the project, do not borrow domain/tech tags from
+// the current working directory (it may be a different repository).
+if (!PROJECT_OVERRIDE) {
+  if (projectInfo.domain) {
+    tagSet.add(projectInfo.domain);
+  } else {
+    tagSet.add('production'); // fallback domain
+  }
+  for (const t of inferTechTags(process.cwd())) tagSet.add(t);
 }
 
-// Add inferred tech tags
-for (const t of inferTechTags(process.cwd())) tagSet.add(t);
+// Add explicit tags
 for (const t of customTags) tagSet.add(t);
 
 // Ensure at least 1 technical tag

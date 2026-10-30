@@ -58,7 +58,6 @@ const config = {
     defaultDb: process.env.AME_DB_PATH || path.join(__dirname, '..', 'data', 'semantic_brain.ame'),
     cliPath: process.env.AME_CLI_PATH || '',
   },
-  autoQa: process.env.AUTO_QA_ENABLED === 'true',
   useSignal: process.env.USE_SIGNAL === 'true',
   retrieval: {
     candidateK: parseInt(process.env.RETRIEVAL_CANDIDATE_K || '100'),

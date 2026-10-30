@@ -8,8 +8,6 @@
  * Usage: node tools/find-qa.js "<question>" [--raw] [--tags=domain:inv,tech:ua]
  */
 const { pool, embed, askLocal, callServer, streamServer, isServerUp, tokenize, qaRankingQuery, normalizeTags, storageAme, config } = require('../core');
-const { execFileSync } = require('child_process');
-const path = require('path');
 
 const MODE = process.argv.includes('--raw') ? 'raw' : 'smart';
 const PROJECT = (() => {
@@ -22,7 +20,6 @@ const TAGS = (() => {
   const raw = arg ? arg.split('=')[1].split(',').map(t => t.trim()).filter(t => t) : [];
   return normalizeTags(raw);
 })();
-const NO_AUTO = process.argv.includes('--no-auto');
 
 async function findQA(question) {
   if (!question || question.trim().length === 0) {
@@ -102,23 +99,8 @@ async function findQA(question) {
     const qq = qaRankingQuery({ limit: 3, project: PROJECT, allProjects: ALL_PROJECTS });
     const result = await pool.query(qq.text, qq.params(tokens, JSON.stringify(vec), filterTags, query, PROJECT));
     if (result.rows.length === 0) {
-      if (!NO_AUTO && config.autoQa && (process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY)) {
-        try {
-          const autoQaPath = path.join(__dirname, 'auto-qa.js');
-          const autoArgs = [autoQaPath, question];
-          if (PROJECT) autoArgs.push(`--project=${PROJECT}`);
-          execFileSync('node', autoArgs, { stdio: 'ignore' });
-          const findQaPath = path.join(__dirname, 'find-qa.js');
-          const out = execFileSync('node', [findQaPath, question, '--raw', '--no-auto'], { encoding: 'utf-8' });
-          console.log(out.trim());
-        } catch (e) {
-          console.log(`[QA MISS] "${question}"`);
-        }
-        process.exit(0);
-      } else {
-        console.log(`[QA MISS] "${question}"`);
-        process.exit(0);
-      }
+      console.log(`[QA MISS] "${question}"`);
+      process.exit(0);
     }
 
     const top = result.rows[0];
