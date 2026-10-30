@@ -1,22 +1,27 @@
 /**
- * setup.js - Tạo bảng + Index tất cả skills/workflows vào PostgreSQL
- * 
- * Chạy: node setup.js
- * Chạy lại: node setup.js --reindex (xoá sạch + index lại)
+ * setup.js — Initialize schema and index skills/workflows.
+ *
+ * Phase 0: schema creation is delegated to migrations/run.js, so a fresh
+ * install and an existing database converge on the same schema.
+ *
+ * Usage:
+ *   node maintenance/setup.js
+ *   node maintenance/setup.js --reindex --force
  */
 const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
-const { embed, MODEL_DIMS } = require('../core');
+const { embed } = require('../core');
 const config = require('../core/config');
 const { extractRegistryKeywords } = require('../core/keywords');
+const { runMigrations } = require('../migrations/run');
 
-// __dirname = .agent/tools/semantic/maintenance → lên 4 cấp = E:\00.ERP\ERP
-const PROJECT_ROOT = path.resolve(__dirname, '../../../..');
-const WORKFLOWS_DIR = path.join(PROJECT_ROOT, '.agent/workflows');
-const SKILLS_DIR = path.join(PROJECT_ROOT, '.agent/skills');
+// AGENT_ROOT points at the project's .agent directory (e.g. E:\00.ERP\ERP\.agent).
+// Falls back to <cwd>/.agent so the repository also works standalone.
+const AGENT_DIR = config.agentRoot || path.join(process.cwd(), '.agent');
+const WORKFLOWS_DIR = path.join(AGENT_DIR, 'workflows');
+const SKILLS_DIR = path.join(AGENT_DIR, 'skills');
 
-// --- DB Setup (tạo database nếu chưa có) ---
 const adminPool = new Pool({
   ...config.db,
   database: 'postgres',
@@ -25,17 +30,22 @@ const adminPool = new Pool({
 
 const appPool = new Pool(config.db);
 
+function quoteIdent(name) {
+  return `"${String(name).replace(/"/g, '""')}"`;
+}
+
 async function ensureDatabase() {
   const client = await adminPool.connect();
   try {
     const res = await client.query(
-      "SELECT 1 FROM pg_database WHERE datname = 'agent_registry'"
+      'SELECT 1 FROM pg_database WHERE datname = $1',
+      [config.db.database]
     );
     if (res.rows.length === 0) {
-      await client.query('CREATE DATABASE agent_registry');
-      console.log('[+] Created database: agent_registry');
+      await client.query(`CREATE DATABASE ${quoteIdent(config.db.database)}`);
+      console.log(`[+] Created database: ${config.db.database}`);
     } else {
-      console.log('[=] Database agent_registry already exists');
+      console.log(`[=] Database ${config.db.database} already exists`);
     }
   } finally {
     client.release();
@@ -43,157 +53,6 @@ async function ensureDatabase() {
   }
 }
 
-async function createTables() {
-  const client = await appPool.connect();
-  try {
-    // Enable extensions
-    await client.query('CREATE EXTENSION IF NOT EXISTS pg_trgm');
-    await client.query('CREATE EXTENSION IF NOT EXISTS vector');
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS agent_registry (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        type VARCHAR(20) NOT NULL CHECK (type IN ('skill', 'workflow')),
-        path TEXT NOT NULL,
-        description TEXT NOT NULL DEFAULT '',
-        keywords TEXT[] DEFAULT '{}',
-        content_preview TEXT DEFAULT '',
-        search_text TEXT DEFAULT '',
-        embedding vector(${MODEL_DIMS}),
-        updated_at TIMESTAMP DEFAULT NOW(),
-        UNIQUE(name, type)
-      )
-    `);
-
-    // HNSW index cho vector search
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_registry_vector 
-      ON agent_registry USING hnsw (embedding vector_cosine_ops)
-    `);
-
-    // Keyword array index
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_registry_keywords 
-      ON agent_registry USING GIN(keywords)
-    `);
-
-    // === RECIPE TABLE: Execution Plan Cache ===
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS agent_recipes (
-        id SERIAL PRIMARY KEY,
-        intent TEXT NOT NULL,
-        category VARCHAR(50) NOT NULL DEFAULT 'general',
-        target_pattern TEXT DEFAULT '',
-        
-        -- Execution plan (chuỗi bước xử lý)
-        steps JSONB NOT NULL DEFAULT '[]',
-        skills_used TEXT[] DEFAULT '{}',
-        tools_used TEXT[] DEFAULT '{}',
-        
-        -- Metadata
-        search_text TEXT DEFAULT '',
-        embedding vector(${MODEL_DIMS}),
-        keywords TEXT[] DEFAULT '{}',
-        hit_count INT DEFAULT 0,
-        success_count INT DEFAULT 0,
-        
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_recipes_vector 
-      ON agent_recipes USING hnsw (embedding vector_cosine_ops)
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_recipes_keywords 
-      ON agent_recipes USING GIN(keywords)
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_recipes_category 
-      ON agent_recipes(category)
-    `);
-
-    // === QA CACHE TABLE: Semantic Knowledge Base ===
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS agent_qa_cache (
-        id SERIAL PRIMARY KEY,
-        question TEXT NOT NULL,
-        answer_context TEXT NOT NULL,
-        
-        -- Classification
-        source VARCHAR(50) DEFAULT 'manual',
-        category VARCHAR(50) DEFAULT 'general',
-        tags TEXT[] DEFAULT '{}',
-        
-        -- Metadata để back-search
-        search_text TEXT DEFAULT '',
-        embedding vector(${MODEL_DIMS}),
-        keywords TEXT[] DEFAULT '{}',
-        
-        -- Deduplication
-        question_hash TEXT GENERATED ALWAYS AS (md5(lower(question))) STORED,
-        
-        -- Telemetry
-        hit_count INT DEFAULT 0,
-        confidence_score FLOAT DEFAULT 1.0,
-        
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_qa_vector 
-      ON agent_qa_cache USING hnsw (embedding vector_cosine_ops)
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_qa_keywords 
-      ON agent_qa_cache USING GIN(keywords)
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_qa_tags 
-      ON agent_qa_cache USING GIN(tags)
-    `);
-    await client.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_qa_unique_question 
-      ON agent_qa_cache(question_hash)
-    `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_qa_category 
-      ON agent_qa_cache(category)
-    `);
-
-    // === QA HISTORY TABLE: Audit Trail for Re-teaching ===
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS agent_qa_history (
-        id SERIAL PRIMARY KEY,
-        qa_id INT REFERENCES agent_qa_cache(id) ON DELETE CASCADE,
-        old_answer TEXT,
-        new_answer TEXT,
-        changed_by VARCHAR(50) DEFAULT 'agent',
-        changed_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
-
-    // === RECIPE ↔ REGISTRY: Cross-reference ===
-    // Add registry_ids column to recipes if not exists
-    await client.query(`
-      DO $$ BEGIN
-        ALTER TABLE agent_recipes ADD COLUMN registry_ids INT[] DEFAULT '{}';
-      EXCEPTION WHEN duplicate_column THEN NULL;
-      END $$
-    `);
-
-    console.log('[+] Tables & indexes created (registry + recipes + qa_cache + qa_history)');
-  } finally {
-    client.release();
-  }
-}
-
-// --- Parse YAML Frontmatter ---
 function parseFrontmatter(content) {
   const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
   if (!match) return {};
@@ -207,15 +66,15 @@ function parseFrontmatter(content) {
 }
 
 function extractContentPreview(content, maxLen = 200) {
-  // Cắt frontmatter, lấy đoạn đầu
   const body = content.replace(/^---[\s\S]*?---\r?\n?/, '').trim();
   return body.substring(0, maxLen).replace(/\n/g, ' ');
 }
 
-// extractKeywords — delegated to shared keywords.js module
-
-// --- Index Workflows ---
 async function indexWorkflows() {
+  if (!fs.existsSync(WORKFLOWS_DIR)) {
+    console.log(`[!] Workflows directory not found, skipping: ${WORKFLOWS_DIR}`);
+    return;
+  }
   const files = fs.readdirSync(WORKFLOWS_DIR).filter(f => f.endsWith('.md'));
   let count = 0;
 
@@ -233,8 +92,8 @@ async function indexWorkflows() {
     await appPool.query(`
       INSERT INTO agent_registry (name, type, path, description, keywords, content_preview, search_text, embedding)
       VALUES ($1, 'workflow', $2, $3, $4, $5, $6, $7)
-      ON CONFLICT (name, type) 
-      DO UPDATE SET description = $3, keywords = $4, content_preview = $5, 
+      ON CONFLICT (name, type)
+      DO UPDATE SET description = $3, keywords = $4, content_preview = $5,
                     search_text = $6, embedding = $7, updated_at = NOW()
     `, [name, filePath, description, keywords, preview, searchText, JSON.stringify(vec)]);
     count++;
@@ -243,18 +102,15 @@ async function indexWorkflows() {
   console.log(`[+] Indexed ${count} workflows`);
 }
 
-// --- Index Skills ---
 async function indexSkills() {
   if (!fs.existsSync(SKILLS_DIR)) {
-    console.log('[!] Skills directory not found, skipping');
+    console.log(`[!] Skills directory not found, skipping: ${SKILLS_DIR}`);
     return;
   }
-
   const dirs = fs.readdirSync(SKILLS_DIR, { withFileTypes: true })
     .filter(d => d.isDirectory());
-  
-  let count = 0;
 
+  let count = 0;
   for (const dir of dirs) {
     const skillFile = path.join(SKILLS_DIR, dir.name, 'SKILL.md');
     if (!fs.existsSync(skillFile)) continue;
@@ -281,26 +137,37 @@ async function indexSkills() {
   console.log(`[+] Indexed ${count} skills`);
 }
 
-// --- Main ---
 async function main() {
   const reindex = process.argv.includes('--reindex');
+  const force = process.argv.includes('--force');
 
   try {
+    if (reindex && !force) {
+      console.error('[ERROR] --reindex drops agent_qa_cache/recipes/registry. Re-run with --force.');
+      process.exit(1);
+    }
+
     await ensureDatabase();
 
     if (reindex) {
-      await appPool.query('DROP TABLE IF EXISTS agent_registry CASCADE');
-      await appPool.query('DROP TABLE IF EXISTS agent_recipes CASCADE');
+      await appPool.query('DROP TABLE IF EXISTS agent_qa_history CASCADE');
       await appPool.query('DROP TABLE IF EXISTS agent_qa_cache CASCADE');
-      console.log('[!] Dropped existing tables for full reindex');
+      await appPool.query('DROP TABLE IF EXISTS agent_recipes CASCADE');
+      await appPool.query('DROP TABLE IF EXISTS agent_registry CASCADE');
+      await appPool.query(`
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+          version TEXT PRIMARY KEY,
+          applied_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+      await appPool.query('TRUNCATE schema_migrations');
+      console.log('[!] Dropped registry/recipes/qa_cache/history and reset migrations for full reindex');
     }
 
-    await createTables();
-
+    await runMigrations(appPool);
     await indexWorkflows();
     await indexSkills();
 
-    // Stats
     const stats = await appPool.query(`
       SELECT type, COUNT(*) as count FROM agent_registry GROUP BY type
     `);
@@ -309,9 +176,9 @@ async function main() {
 
     const total = await appPool.query('SELECT COUNT(*) as total FROM agent_registry');
     console.log(`  TOTAL: ${total.rows[0].total} items indexed`);
-
   } catch (err) {
     console.error('[ERROR]', err.message);
+    process.exitCode = 1;
   } finally {
     await appPool.end();
   }
