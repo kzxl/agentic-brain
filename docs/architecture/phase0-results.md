@@ -96,8 +96,8 @@
 
 ### 2.6. Test và baseline
 
-- `tests/phase0.test.js` (4 test): defaults, project predicate, clamp limit/minSimilarity, tag normalization.
-- `tools/verify-phase0.js`: 26 check on schema/config/project scope.
+- `tests/phase0.test.js` (6 test): defaults, project predicate, global-only default, all-projects, clamp, tag normalization.
+- `tools/verify-phase0.js`: 30 check on schema/config/project scope.
 - `tools/baseline.js`: 20 query, ghi `docs/architecture/baseline.json`.
 
 ---
@@ -106,8 +106,8 @@
 
 | Kiểm tra | Kết quả |
 | :--- | :--- |
-| `npm test` | 4/4 pass |
-| `npm run verify:phase0` | 26/26 pass |
+| `npm test` | 6/6 pass |
+| `npm run verify:phase0` | 30/30 pass |
 | Server `/health` không token | 200 (public) |
 | Server `/find-qa` không token | 401 |
 | Server `/find-qa` có token | 200 |
@@ -117,6 +117,9 @@
 | Proxy completion không token | 401 |
 | Project `semanticbrain` | chỉ seed global, không ERP |
 | Project `erp` | ERP + global seed |
+| Không truyền project | chỉ `project:global` |
+| `all_projects=true` | cross-project có chủ đích |
+| project + `all_projects` cùng lúc | không lỗi placeholder |
 | Writer global vs project cùng câu hỏi | 2 bản ghi riêng, tags đúng |
 | Writer transaction rollback | không để lại dữ liệu |
 | AME count trước/sau CLI save | 3872 → 3872 (không ghi AME) |
