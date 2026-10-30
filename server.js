@@ -11,7 +11,7 @@
 const http = require('http');
 const url = require('url');
 const crypto = require('crypto');
-const { pool, embed, askLocal, tokenize, qaRankingQuery, recipeRankingQuery, skillRankingQuery, captureKnowledge, ingestText } = require('./core');
+const { pool, embed, askLocal, tokenize, qaRankingQuery, recipeRankingQuery, skillRankingQuery, captureKnowledge, ingestText, attachParents, queryRetrieval } = require('./core');
 const config = require('./core/config');
 
 const PORT = config.server.port;
@@ -43,13 +43,13 @@ function isAuthorized(req) {
 // Route handlers
 // ============================================================
 
-async function handleFindQA(query, mode, tags, project = null, allProjects = false, resStream = null) {
+async function handleFindQA(query, mode, tags, project = null, allProjects = false, includeParent = false, resStream = null) {
   const tokens = tokenize(query);
   const vec = await embed(query);
   const filterTags = Array.isArray(tags) && tags.length > 0 ? tags : null;
 
   const qq = qaRankingQuery({ limit: 3, project, allProjects });
-  const result = await pool.query(
+  const result = await queryRetrieval(
     qq.text,
     qq.params(tokens, JSON.stringify(vec), filterTags, query, project)
   );
@@ -58,7 +58,11 @@ async function handleFindQA(query, mode, tags, project = null, allProjects = fal
     return { status: 'MISS', question: query };
   }
 
-  const top = result.rows[0];
+  let top = result.rows[0];
+  if (includeParent && top.parent_id) {
+    const [enriched] = await attachParents([top]);
+    top = enriched;
+  }
   await pool.query(
     `UPDATE agent_qa_cache
      SET hit_count = hit_count + 1,
@@ -83,6 +87,7 @@ async function handleFindQA(query, mode, tags, project = null, allProjects = fal
       project_id: top.project_id,
       trust_level: top.trust_level,
       parent_id: top.parent_id,
+      parent: top.parent || null,
       question: top.question,
       answer: top.answer_context,
     };
@@ -287,7 +292,7 @@ async function handleFindQADeep(question, tags, project = null, allProjects = fa
       const filterTags = Array.isArray(tags) && tags.length > 0 ? tags : null;
 
       const qq = qaRankingQuery({ limit: 1, project, allProjects });
-      result = await pool.query(
+      result = await queryRetrieval(
         qq.text,
         qq.params(tokens, JSON.stringify(vec), filterTags, q, project)
       );
@@ -415,12 +420,13 @@ const server = http.createServer(async (req, res) => {
         const qaMode = q.mode || 'smart';
         const qaProject = q.project || null;
         const qaAll = q.all_projects === 'true';
+        const qaIncludeParent = q.include_parent === 'true';
         const qaTags = q.tags ? q.tags.split(',').map(t => t.trim()).filter(t => t) : null;
         if (q.stream === 'true') {
-          const resObj = await handleFindQA(qaQuery, qaMode, qaTags, qaProject, qaAll, res);
+          const resObj = await handleFindQA(qaQuery, qaMode, qaTags, qaProject, qaAll, qaIncludeParent, res);
           if (resObj) respond(resObj);
         } else {
-          respond(await handleFindQA(qaQuery, qaMode, qaTags, qaProject, qaAll));
+          respond(await handleFindQA(qaQuery, qaMode, qaTags, qaProject, qaAll, qaIncludeParent));
         }
         break;
       }

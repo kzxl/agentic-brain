@@ -15,7 +15,7 @@
  *   → Merge: A1 + A2 = Complete answer
  */
 
-const { pool, embed, askLocal, tokenize, qaRankingQuery } = require('../core');
+const { pool, embed, askLocal, tokenize, qaRankingQuery, queryRetrieval } = require('../core');
 
 const MAX_DEPTH = 3; // Prevent infinite loops
 const MODE = process.argv.includes('--raw') ? 'raw' : 'smart';
@@ -39,7 +39,7 @@ async function findQADeep(question, depth = 0) {
   const vec = await embed(query);
 
   const qq = qaRankingQuery({ limit: 1, project: PROJECT, allProjects: ALL_PROJECTS });
-  const result = await pool.query(qq.text, qq.params(tokens, JSON.stringify(vec), null, query, PROJECT));
+  const result = await queryRetrieval(qq.text, qq.params(tokens, JSON.stringify(vec), null, query, PROJECT));
 
   if (result.rows.length === 0) {
     console.log(`${'  '.repeat(depth)}[MISS] No answer found`);

@@ -12,7 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const { performance } = require('perf_hooks');
 const { execSync } = require('child_process');
-const { pool, embed, qaRankingQuery } = require('../core');
+const { pool, embed, qaRankingQuery, queryRetrieval } = require('../core');
 
 const PROJECT = (() => {
   const arg = process.argv.find(a => a.startsWith('--project='));
@@ -65,7 +65,7 @@ async function main() {
     const vec = await embed(query);
     const qq = qaRankingQuery({ limit: LIMIT, project: PROJECT });
     const t0 = performance.now();
-    const result = await pool.query(
+    const result = await queryRetrieval(
       qq.text,
       qq.params([], JSON.stringify(vec), null, query, PROJECT)
     );

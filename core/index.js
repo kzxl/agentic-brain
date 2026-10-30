@@ -15,6 +15,8 @@ const { captureKnowledge } = require('./knowledge');
 const { resolveScope } = require('./scope');
 const { normalizeKnowledge, validateAtoms, parseIngestPayload } = require('./normalizer');
 const { ingestText } = require('./ingest');
+const { attachParents } = require('./parents');
+const { queryRetrieval } = require('./retrieval-db');
 const { normalizeTrustLevel, TRUST_LEVELS, trustRank } = require('./trust');
 
 module.exports = {
@@ -32,6 +34,8 @@ module.exports = {
   validateAtoms,
   parseIngestPayload,
   ingestText,
+  attachParents,
+  queryRetrieval,
   normalizeTrustLevel,
   TRUST_LEVELS,
   trustRank,

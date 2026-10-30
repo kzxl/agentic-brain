@@ -62,6 +62,7 @@ const config = {
   retrieval: {
     candidateK: parseInt(process.env.RETRIEVAL_CANDIDATE_K || '100'),
     minSimilarity: parseFloat(process.env.RETRIEVAL_MIN_SIMILARITY || '0.38'),
+    forceIndex: process.env.RETRIEVAL_FORCE_INDEX !== 'false',
   },
   agentRoot: process.env.AGENT_ROOT || '',
 };

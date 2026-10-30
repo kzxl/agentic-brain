@@ -9,7 +9,7 @@
  *   node tools/find-qa-context.js "<task description>" [--tags=ua,winforms] [--limit=5]
  */
 
-const { pool, embed, tokenize, qaRankingQuery, normalizeTags, inferTags, storageAme, config } = require('../core');
+const { pool, embed, tokenize, qaRankingQuery, normalizeTags, inferTags, storageAme, config, attachParents, queryRetrieval } = require('../core');
 const path = require('path');
 const fs = require('fs');
 const { execSync } = require('child_process');
@@ -17,6 +17,7 @@ const { execSync } = require('child_process');
 // Parse args
 const task = process.argv[2];
 const IS_FULL = process.argv.includes('--full');
+const WITH_PARENT = IS_FULL || process.argv.includes('--with-parent');
 const BACKEND_ARG = process.argv.find(a => a.startsWith('--backend='))?.split('=')[1]?.toLowerCase();
 const PROJECT = (() => {
   const arg = process.argv.find(a => a.startsWith('--project='));
@@ -146,7 +147,7 @@ async function searchOne(question, tagsFilter, activeBackend, project, allProjec
     project,
     allProjects,
   });
-  const result = await pool.query(
+  const result = await queryRetrieval(
     qq.text,
     qq.params(tokens, JSON.stringify(vec), filterTags, query, project)
   );
@@ -204,7 +205,11 @@ async function findQAContext(taskDescription) {
 
   const collected = Array.from(seen.values());
   collected.sort((a, b) => b.cross_rrf_score - a.cross_rrf_score);
-  const top = collected.slice(0, LIMIT);
+  let top = collected.slice(0, LIMIT);
+
+  if (WITH_PARENT && top.some(r => r.parent_id)) {
+    top = await attachParents(top);
+  }
 
   const ids = top.map(r => r.id);
   if (ids.length > 0 && activeBackend === 'postgres') {
@@ -233,6 +238,8 @@ async function findQAContext(taskDescription) {
       const preview = cleanAnswer.length > 140 ? cleanAnswer.substring(0, 137) + '...' : cleanAnswer;
 
       console.log(`[#${row.id}] (${score}% match) [${tags}]${row.scope ? ` [${row.scope}]` : ''} ${row.question}`);
+      if (row.parent_id) console.log(`      ↳ parent document #${row.parent_id}`);
+      if (row.parent) console.log(`      Parent: ${row.parent.question}`);
       console.log(`      └─ Gotcha/Fix: ${preview}`);
     });
     console.log(`\n💡 To view detailed root cause & code snippet for any entry, run: node brain.js view <id>`);
@@ -244,6 +251,10 @@ async function findQAContext(taskDescription) {
       console.log(`--- [${i + 1}] QA #${row.id} | DB_Score: ${score}% | Cross_RRF: ${rrfDisplay} | Scope: ${row.scope || '?'} | Tags: ${tags} ---`);
       console.log(`Q: ${row.question}`);
       console.log(`A: ${row.answer_context}`);
+      if (row.parent) {
+        console.log(`   [PARENT #${row.parent.id}] ${row.parent.question}`);
+        console.log(`   ${row.parent.answer_context}`);
+      }
       console.log(`   [matched via: ${row.matched_queries.map(q => `"${q}"`).join(', ')}]\n`);
     });
   }
