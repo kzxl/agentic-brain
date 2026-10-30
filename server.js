@@ -107,17 +107,6 @@ async function handleFindQA(query, mode, tags, project = null, allProjects = fal
       resStream.write(`data: ${JSON.stringify({ token })}\n\n`);
     });
 
-    // Optional auto-save. Disabled by default; when enabled, normalize into atoms.
-    if (config.smartAutoSave && finalAns.text.length > 50 && top.final_score > 0.5) {
-      ingestText({
-        text: `Q: ${query}\nA: ${finalAns.text}`,
-        project,
-        source: 'smart-rag',
-        sourceRef: `smart-rag:${Date.now()}`,
-        confidence: 0.5,
-      }).catch(err => console.error('[AUTO-SAVE]', err.message));
-    }
-
     resStream.write(`data: ${JSON.stringify({
       status: 'SMART',
       contexts: result.rows.length,
@@ -132,17 +121,6 @@ async function handleFindQA(query, mode, tags, project = null, allProjects = fal
     return null; // Sent stream
   } else {
     const llmResult = await askLocal(prompt, { system });
-
-    // Optional auto-save. Disabled by default; when enabled, normalize into atoms.
-    if (config.smartAutoSave && llmResult.text.length > 50 && top.final_score > 0.5) {
-      ingestText({
-        text: `Q: ${query}\nA: ${llmResult.text}`,
-        project,
-        source: 'smart-rag',
-        sourceRef: `smart-rag:${Date.now()}`,
-        confidence: 0.5,
-      }).catch(err => console.error('[AUTO-SAVE]', err.message));
-    }
 
     return {
       status: 'SMART',
@@ -464,6 +442,29 @@ const server = http.createServer(async (req, res) => {
         const body = await readBody(req, MAX_BODY_BYTES);
         respond(await handleSaveQA(body.question, body.answer, body));
         break;
+
+      case '/ingest': {
+        if (req.method !== 'POST') { respond({ error: 'POST only' }, 405); break; }
+        const ingestBody = await readBody(req, MAX_BODY_BYTES);
+        if (!Array.isArray(ingestBody.atoms) || ingestBody.atoms.length === 0) {
+          respond({ error: 'atoms array is required; agent-side ingestion does not call an LLM' }, 400);
+          break;
+        }
+        const ingestTextBody = ingestBody.text
+          || ingestBody.atoms.map(a => `Q: ${a.question}\nA: ${a.answer}`).join('\n\n');
+        const result = await ingestText({
+          text: ingestTextBody,
+          atoms: ingestBody.atoms,
+          project: ingestBody.project || null,
+          scope: ingestBody.scope || null,
+          source: ingestBody.source || 'api',
+          sourceRef: ingestBody.source_ref || ingestBody.sourceRef || null,
+          tags: Array.isArray(ingestBody.tags) ? ingestBody.tags : [],
+          confidence: ingestBody.confidence !== undefined ? ingestBody.confidence : 0.6,
+        });
+        respond(result);
+        break;
+      }
 
       case '/mark-recipe':
         if (req.method !== 'POST') { respond({ error: 'POST only' }, 405); break; }

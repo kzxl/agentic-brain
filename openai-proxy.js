@@ -4,7 +4,7 @@
  * Bọc Local LLM (VD: Ollama) qua giao thức OpenAI API tương thích.
  * Tính năng:
  * 1. Tiêm RAG: Tự động chặn tin nhắn, truy vấn SemanticBrain lấy RAG context nhúng vào prompt.
- * 2. Auto-Harvest: opt-in (PROXY_AUTO_HARVEST=false by default), observation-only.
+ * 2. Không tự học: agent gọi /ingest với atomic JSON; proxy không phân tích completion.
  * 
  * Start: node openai-proxy.js
  * Default Port: 3458
@@ -15,13 +15,11 @@ const url = require('url');
 const crypto = require('crypto');
 const config = require('./core/config');
 const client = require('./core/client');
-const { ingestText } = require('./core');
 
 const PROXY_PORT = parseInt(process.env.PROXY_PORT || '3458');
 const PROXY_HOST = process.env.BIND_HOST || '127.0.0.1';
 const MAX_BODY_BYTES = parseInt(process.env.MAX_BODY_BYTES || '1048576');
 const PROXY_TOKEN = config.server.proxyToken;
-const AUTO_HARVEST = config.proxyAutoHarvest;
 const CORS_ORIGIN = process.env.PROXY_CORS_ORIGIN || '*';
 const OLLAMA_HOST = new url.URL(config.ollama.url).origin; // e.g., http://localhost:11434
 
@@ -67,42 +65,8 @@ async function readBody(req, maxBytes = MAX_BODY_BYTES) {
   });
 }
 
-// Hàm tự động học: Lọc tạp âm và lưu kiến thức kỹ thuật.
-// Phase 0: mặc định TẮT (PROXY_AUTO_HARVEST=false) và chỉ ghi observation.
-async function evaluateAndSave(question, answer, project = null) {
-  if (!AUTO_HARVEST) return;
-  if (!question || !answer) return;
-
-  const qTrim = question.trim();
-  const aTrim = answer.trim();
-
-  // 1. Heuristic độ dài: Câu hỏi quá ngắn (<15) hoặc trả lời quá ngắn (<80) thì bỏ qua
-  if (qTrim.length < 15 || aTrim.length < 80) return;
-
-  const qLower = qTrim.toLowerCase();
-
-  // 2. Chống tạp nham: Bỏ qua các câu chào hỏi, dịch thuật, viết lại câu, tóm tắt
-  const junkPatterns = /^(chào|hi |hello|cảm ơn|thanks|tóm tắt|dịch|translate|viết lại|sửa lỗi chính tả|kiểm tra chính tả|bạn là ai|cho tôi hỏi)/i;
-  if (junkPatterns.test(qLower) && qTrim.length < 50) return;
-
-  if (qLower.includes('viết email') || qLower.includes('viết truyện')) return;
-
-  // 3. Tiêu chí lấy: Phải có code HOẶC câu hỏi mang tính chất kỹ thuật/giải quyết vấn đề
-  const hasCode = aTrim.includes('```');
-  const isTechQuestion = /(làm sao|how to|lỗi|error|fix|hướng dẫn|tại sao|nguyên nhân|kiến trúc|architecture|code|bug|thuật toán|algorithm)/i.test(qLower);
-
-  if (!hasCode && !isTechQuestion) return;
-
-  console.log(`\n[PROXY: Auto-Harvest] Ghi nhận tri thức mới: "${qTrim.substring(0, 40).replace(/\n/g, ' ')}..."`);
-  await ingestText({
-    text: `Q: ${qTrim}\nA: ${aTrim}`,
-    project,
-    source: 'proxy-auto',
-    sourceRef: `proxy:${Date.now()}`,
-    confidence: 0.5,
-    tags: ['unverified'],
-  });
-}
+// Proxy does not analyze or persist completions. Knowledge is written only by
+// the calling agent through the semantic-brain /ingest endpoint or CLI.
 
 const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', CORS_ORIGIN);
@@ -124,7 +88,7 @@ const server = http.createServer(async (req, res) => {
       service: 'semantic-openai-proxy',
       backend_llm: OLLAMA_HOST,
       rag_server_port: client.PORT,
-      auto_harvest: AUTO_HARVEST
+      auto_harvest: false
     }));
   }
 
@@ -229,56 +193,9 @@ You are executing as an autonomous software agent.
 
       const proxyReq = requestModule.request(proxyOptions, (proxyRes) => {
         res.writeHead(proxyRes.statusCode, proxyRes.headers);
-        
-        let responseChunks = [];
-        
-        // Vừa stream dữ liệu về cho user ngay lập tức, vừa gom buffer lại để học
-        proxyRes.on('data', chunk => {
-          res.write(chunk);
-          responseChunks.push(chunk);
-        });
-        
-        // Khi stream kết thúc, phân tích để auto-harvest
-        proxyRes.on('end', () => {
-          res.end();
-          
-          if (lastUserMsg && proxyRes.statusCode === 200) {
-            try {
-              const fullBody = Buffer.concat(responseChunks).toString('utf8');
-              let finalAnswer = '';
-              
-              if (fullBody.includes('data: ')) {
-                 // Xử lý luồng SSE (Server-Sent Events)
-                 const lines = fullBody.split('\n');
-                 for (const line of lines) {
-                   if (line.startsWith('data: ') && line.trim() !== 'data: [DONE]') {
-                     try {
-                       const data = JSON.parse(line.substring(6));
-                       if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
-                         finalAnswer += data.choices[0].delta.content;
-                       }
-                     } catch(e) {} // Bỏ qua chunk lỗi JSON
-                   }
-                 }
-              } else {
-                 // Xử lý Non-stream JSON
-                 const data = JSON.parse(fullBody);
-                 if (data.choices && data.choices[0].message && data.choices[0].message.content) {
-                   finalAnswer = data.choices[0].message.content;
-                 }
-              }
-              
-              // Chạy bộ lọc và lưu (nếu đạt chuẩn). Mặc định tắt.
-              evaluateAndSave(
-                lastUserMsg,
-                finalAnswer,
-                project
-              ).catch(err => console.error('[PROXY: Auto-Harvest]', err.message));
-            } catch(e) {
-              // Ignore lỗi parse auto-harvest để không ảnh hưởng proxy
-            }
-          }
-        });
+        // Pass the stream through unchanged. The proxy never buffers or learns
+        // from completions; agent-side /ingest owns knowledge capture.
+        proxyRes.pipe(res);
       });
 
       proxyReq.on('error', (err) => {
@@ -344,6 +261,6 @@ server.listen(PROXY_PORT, PROXY_HOST, () => {
   console.log(`    Local LLM backend: ${OLLAMA_HOST}`);
   console.log(`    RAG Engine target: http://127.0.0.1:${client.PORT}`);
   console.log(`    Auth:              ${PROXY_TOKEN ? 'enabled (Bearer)' : 'disabled (local-only)'}`);
-  console.log(`    Auto-Harvest:      ${AUTO_HARVEST ? 'ENABLED (observation, confidence 0.5)' : 'DISABLED'}`);
+  console.log(`    Auto-Harvest:      DISABLED (agent writes atoms via /ingest)`);
   console.log(`\n=> Cấu hình app của bạn tới: http://localhost:${PROXY_PORT}/v1`);
 });
