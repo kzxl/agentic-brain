@@ -15,6 +15,7 @@ const { captureKnowledge } = require('./knowledge');
 const { resolveScope } = require('./scope');
 const { normalizeKnowledge, validateAtoms, parseIngestPayload } = require('./normalizer');
 const { ingestText } = require('./ingest');
+const { normalizeTrustLevel, TRUST_LEVELS, trustRank } = require('./trust');
 
 module.exports = {
   config,
@@ -31,4 +32,7 @@ module.exports = {
   validateAtoms,
   parseIngestPayload,
   ingestText,
+  normalizeTrustLevel,
+  TRUST_LEVELS,
+  trustRank,
 };

@@ -21,6 +21,7 @@
  * @param {boolean} opts.withTags - Include tag filtering (default true)
  * @param {string} [opts.project] - Project scope; when omitted, only global knowledge is searched
  * @param {boolean} [opts.allProjects] - Explicit cross-project search (admin/analytics)
+ * @param {number} [opts.candidateK] - ANN/FTS candidate budget (default 100)
  * @returns {{ text: string, params: (tokens, vec, tags, rawQuery, project) => any[] }}
  */
 function qaRankingQuery(opts = {}) {
@@ -30,29 +31,55 @@ function qaRankingQuery(opts = {}) {
     : 0.35;
   const withTags = opts.withTags !== false;
   const allProjects = opts.allProjects === true;
-  const project = opts.project || null;
-  const projectIdx = withTags ? '$5' : '$4';
-
-  const tagFilter = withTags ? '($2::text[] IS NULL OR tags && $2::text[])' : 'TRUE';
-  const projectFilter = allProjects
-    ? 'TRUE'
-    : (project
-        ? `(('project:' || ${projectIdx}::text) = ANY(tags) OR scope = 'global')`
-        : "scope = 'global'");
-  const limitParam = withTags ? '$4' : '$3';
-  const rawQueryIdx = withTags ? '$3' : '$2';
+  const candidateK = Math.max(10, Math.min(1000, parseInt(opts.candidateK, 10) || 100));
 
   const text = `
-    WITH base_filter AS (
+    WITH ann AS (
+      SELECT id
+      FROM agent_qa_cache
+      WHERE ($2::text[] IS NULL OR tags && $2::text[])
+        AND COALESCE(chunk_type, 'atom') = 'atom'
+        AND COALESCE(status, 'active') = 'active'
+        AND (valid_to IS NULL OR valid_to > NOW())
+        AND (
+          $6::boolean = true
+          OR ($5::text IS NULL AND scope = 'global')
+          OR ($5::text IS NOT NULL AND (project_id = $5::text OR scope = 'global'))
+        )
+        AND embedding IS NOT NULL
+      ORDER BY embedding <=> $1::vector
+      LIMIT $7
+    ),
+    fts AS (
+      SELECT id
+      FROM agent_qa_cache
+      WHERE ($2::text[] IS NULL OR tags && $2::text[])
+        AND COALESCE(chunk_type, 'atom') = 'atom'
+        AND COALESCE(status, 'active') = 'active'
+        AND (valid_to IS NULL OR valid_to > NOW())
+        AND (
+          $6::boolean = true
+          OR ($5::text IS NULL AND scope = 'global')
+          OR ($5::text IS NOT NULL AND (project_id = $5::text OR scope = 'global'))
+        )
+        AND tsv @@ plainto_tsquery('simple', $3)
+      ORDER BY ts_rank_cd(tsv, plainto_tsquery('simple', $3)) DESC
+      LIMIT $7
+    ),
+    cand AS (
+      SELECT id FROM ann
+      UNION
+      SELECT id FROM fts
+    ),
+    base_filter AS (
       SELECT id, question, answer_context, confidence_score, tags, updated_at, use_count,
-        scope, chunk_type, parent_id,
+        scope, project_id, chunk_type, parent_id,
+        trust_level, source_type, verifier, valid_from, valid_to, status,
         1 - (embedding <=> $1::vector) AS vector_similarity,
-        ts_rank_cd(to_tsvector('simple', COALESCE(question, '') || ' ' || COALESCE(answer_context, '')), plainto_tsquery('simple', ${rawQueryIdx})) AS fts_score,
+        ts_rank_cd(tsv, plainto_tsquery('simple', $3)) AS fts_score,
         GREATEST(1.0 - LEAST(EXTRACT(EPOCH FROM NOW() - updated_at) / (86400.0 * 180), 0.3), 0.7) AS freshness
       FROM agent_qa_cache
-      WHERE ${tagFilter}
-        AND ${projectFilter}
-        AND COALESCE(chunk_type, 'atom') = 'atom'
+      WHERE id IN (SELECT id FROM cand)
     ),
     ranked AS (
       SELECT *,
@@ -70,7 +97,7 @@ function qaRankingQuery(opts = {}) {
       AS final_score
     FROM ranked
     ORDER BY final_score DESC
-    LIMIT ${limitParam}
+    LIMIT $4
   `;
 
   return {
@@ -84,16 +111,9 @@ function qaRankingQuery(opts = {}) {
      * @param {string} rawQuery
      * @param {string|null} project  project name (without the `project:` prefix)
      */
-    params(tokens, vecJson, tags = null, rawQuery = '', projectArg = null) {
+    params(tokens, vecJson, tags = null, rawQuery = '', project = null) {
       const q = rawQuery || (tokens || []).join(' ');
-      // The SQL scope decision is made from opts. Do not inject a project
-      // parameter when the query was built as global-only or all-projects.
-      const p = !allProjects && project ? (projectArg || project) : null;
-
-      if (withTags) {
-        return p ? [vecJson, tags, q, limit, p] : [vecJson, tags, q, limit];
-      }
-      return p ? [vecJson, q, limit, p] : [vecJson, q, limit];
+      return [vecJson, withTags ? tags : null, q, limit, project, allProjects, candidateK];
     }
   };
 }

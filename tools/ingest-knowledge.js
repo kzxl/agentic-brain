@@ -38,6 +38,10 @@ const SCOPE_ARG = process.argv.find(a => a.startsWith('--scope='))?.split('=')[1
 const SOURCE_ARG = process.argv.find(a => a.startsWith('--source='))?.split('=')[1];
 const SOURCE_REF_ARG = process.argv.find(a => a.startsWith('--source-ref='))?.slice('--source-ref='.length);
 const CONFIDENCE_ARG = process.argv.find(a => a.startsWith('--confidence='))?.split('=')[1];
+const TRUST_ARG = process.argv.find(a => a.startsWith('--trust='))?.split('=')[1];
+const VERIFIER_ARG = process.argv.find(a => a.startsWith('--verifier='))?.slice('--verifier='.length);
+const VALID_FROM_ARG = process.argv.find(a => a.startsWith('--valid-from='))?.slice('--valid-from='.length);
+const VALID_TO_ARG = process.argv.find(a => a.startsWith('--valid-to='))?.slice('--valid-to='.length);
 const TAGS_ARG = process.argv.find(a => a.startsWith('--tags='))?.split('=')[1];
 const DRY_RUN = process.argv.includes('--dry-run');
 
@@ -53,6 +57,9 @@ Options:
   --source=agent      Source label
   --source-ref=...    Session/commit/file reference
   --confidence=0.7
+  --trust=observation|hypothesis|inference|verified_fact|user_decision
+  --verifier=build|test|user
+  --valid-from=2026-01-01 --valid-to=2027-01-01
   --tags=a,b
   --dry-run           Validate and print, do not write`);
 }
@@ -104,6 +111,11 @@ async function main() {
   const confidence = CONFIDENCE_ARG !== undefined
     ? parseFloat(CONFIDENCE_ARG)
     : (payload.confidence !== undefined ? payload.confidence : 0.6);
+  const trustLevel = TRUST_ARG || payload.trust_level || payload.trustLevel || null;
+  const verifier = VERIFIER_ARG || payload.verifier || null;
+  const validFrom = VALID_FROM_ARG || payload.valid_from || payload.validFrom || null;
+  const validTo = VALID_TO_ARG || payload.valid_to || payload.validTo || null;
+  const sourceType = payload.source_type || payload.sourceType || source;
   const tags = TAGS_ARG
     ? TAGS_ARG.split(',').map(t => t.trim()).filter(Boolean)
     : (Array.isArray(payload.tags) ? payload.tags : []);
@@ -135,6 +147,11 @@ async function main() {
     sourceRef,
     tags,
     confidence,
+    trustLevel,
+    sourceType,
+    verifier,
+    validFrom,
+    validTo,
   });
 
   console.log(`\n[DONE] ${result.count} atom(s) saved | parent: ${result.parentId || 'none'} | ids: ${result.ids.join(',')}`);

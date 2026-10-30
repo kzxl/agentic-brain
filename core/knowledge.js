@@ -1,16 +1,17 @@
 /**
  * knowledge.js — Single write path for knowledge capture.
  *
- * Phase 1:
- *   - deterministic scope resolution (project vs global)
- *   - global candidates from a project are queued for review
- *   - atomic documents and atoms are linked via parent_id/source_ref
- *   - one dedup policy (exact hash + semantic >= 0.85 within the same scope)
+ * Phase 2:
+ *   - project_id is a real column (unique per project/question)
+ *   - deterministic scope resolution
+ *   - explicit trust/provenance (source type, evidence, verifier, validity)
+ *   - documents and atoms are linked via parent_id/source_ref
  */
 const pool = require('./db');
 const { embed } = require('./embed');
 const { extractKeywords, inferTags } = require('./keywords');
 const { resolveScope } = require('./scope');
+const { normalizeTrustLevel, normalizeEvidence, trustRank } = require('./trust');
 
 const SEMANTIC_DEDUP_THRESHOLD = 0.85;
 
@@ -30,7 +31,6 @@ function buildTags(question, answer, tags, scope, project, pinned) {
     ? 'project:global'
     : (project ? `project:${project}` : 'project:global');
 
-  // Never keep two conflicting project tags on one record.
   const filtered = merged.filter(t => !t.startsWith('project:') || t === projectTag);
   if (!filtered.includes(projectTag)) filtered.push(projectTag);
   if (pinned && !filtered.includes('pinned')) filtered.push('pinned');
@@ -47,6 +47,36 @@ function resolveInputScope(input, project, source, content) {
     scopeHint: input.scopeHint,
     scopeHintConfidence: input.scopeHintConfidence,
   });
+}
+
+function buildProvenance(input, source) {
+  const evidence = normalizeEvidence(input.evidence);
+  const verifier = input.verifier || input.verifierName || null;
+  const trustLevel = normalizeTrustLevel(input.trustLevel || input.trust_level, {
+    source,
+    evidence,
+    verifier,
+  });
+  const sourceType = input.sourceType || input.source_type || source;
+  const verifiedAt = (trustLevel === 'verified_fact' || trustLevel === 'user_decision')
+    ? (input.verifiedAt || input.verified_at || new Date())
+    : (input.verifiedAt || input.verified_at || null);
+  const validFrom = input.validFrom || input.valid_from || new Date();
+  const validTo = input.validTo || input.valid_to || null;
+  const status = input.status || 'active';
+
+  return {
+    evidence,
+    evidenceJson: JSON.stringify(evidence),
+    verifier,
+    trustLevel,
+    trustRankValue: trustRank(trustLevel),
+    sourceType,
+    verifiedAt,
+    validFrom,
+    validTo,
+    status,
+  };
 }
 
 /**
@@ -68,6 +98,14 @@ function resolveInputScope(input, project, source, content) {
  * @param {number|null} [input.parentId]
  * @param {number|null} [input.atomIndex]
  * @param {string|null} [input.sourceRef]
+ * @param {string} [input.trustLevel]
+ * @param {string} [input.sourceType]
+ * @param {string[]|string} [input.evidence]
+ * @param {string|null} [input.verifier]
+ * @param {Date|string} [input.verifiedAt]
+ * @param {Date|string} [input.validFrom]
+ * @param {Date|string|null} [input.validTo]
+ * @param {string} [input.status]
  * @param {object} [db=pool]
  */
 async function captureKnowledge(input, db = pool) {
@@ -88,7 +126,9 @@ async function captureKnowledge(input, db = pool) {
 
   const content = `${question}\n${answer}`;
   const scopeInfo = resolveInputScope(input, project, source, content);
+  const projectId = scopeInfo.scope === 'global' ? 'global' : (project || 'unknown');
   const tags = buildTags(question, answer, input.tags, scopeInfo.scope, project, input.pinned);
+  const provenance = buildProvenance(input, source);
 
   const searchText = `${question} ${answer}`.toLowerCase();
   const keywords = extractKeywords(searchText);
@@ -98,8 +138,7 @@ async function captureKnowledge(input, db = pool) {
     const existing = sourceRef
       ? await db.query(
           `SELECT id FROM agent_qa_cache
-           WHERE chunk_type = 'document'
-             AND source_ref = $1
+           WHERE chunk_type = 'document' AND source_ref = $1
            LIMIT 1`,
           [sourceRef]
         )
@@ -123,13 +162,24 @@ async function captureKnowledge(input, db = pool) {
              scope_confidence = $12,
              scope_candidate = $13,
              review_status = $14,
-             source_ref = $15,
+             trust_level = $15,
+             source_type = $16,
+             evidence = $17::jsonb,
+             verifier = $18,
+             verified_at = $19,
+             valid_from = $20,
+             valid_to = $21,
+             status = $22,
+             project_id = $23,
+             source_ref = $24,
              updated_at = NOW()
-         WHERE id = $16`,
-        [question, answer, searchText, keywords, source, category, tags,
-         confidence, scopeInfo.scope, scopeInfo.origin, scopeInfo.reason,
-         scopeInfo.confidence, scopeInfo.candidate, scopeInfo.reviewStatus,
-         sourceRef, id]
+         WHERE id = $25`,
+        [question, answer, searchText, keywords, source, category, tags, confidence,
+         scopeInfo.scope, scopeInfo.origin, scopeInfo.reason, scopeInfo.confidence,
+         scopeInfo.candidate, scopeInfo.reviewStatus, provenance.trustLevel,
+         provenance.sourceType, provenance.evidenceJson, provenance.verifier,
+         provenance.verifiedAt, provenance.validFrom, provenance.validTo,
+         provenance.status, projectId, sourceRef, id]
       );
       return { status: 'updated', id, matchType: 'document' };
     }
@@ -138,13 +188,20 @@ async function captureKnowledge(input, db = pool) {
       `INSERT INTO agent_qa_cache
          (question, answer_context, search_text, keywords, embedding, source, category, tags,
           confidence_score, scope, scope_origin, scope_reason, scope_confidence,
-          scope_candidate, review_status, parent_id, atom_index, chunk_type, source_ref)
+          scope_candidate, review_status, trust_level, source_type, evidence, verifier,
+          verified_at, valid_from, valid_to, status, parent_id, atom_index, chunk_type,
+          source_ref, project_id)
        VALUES ($1, $2, $3, $4, NULL, $5, $6, $7,
-               $8, $9, $10, $11, $12, $13, $14, NULL, NULL, 'document', $15)
+               $8, $9, $10, $11, $12, $13, $14,
+               $15, $16, $17::jsonb, $18, $19, $20, $21, $22,
+               NULL, NULL, 'document', $23, $24)
        RETURNING id`,
-      [question, answer, searchText, keywords, source, category, tags,
-       confidence, scopeInfo.scope, scopeInfo.origin, scopeInfo.reason,
-       scopeInfo.confidence, scopeInfo.candidate, scopeInfo.reviewStatus, sourceRef]
+      [question, answer, searchText, keywords, source, category, tags, confidence,
+       scopeInfo.scope, scopeInfo.origin, scopeInfo.reason, scopeInfo.confidence,
+       scopeInfo.candidate, scopeInfo.reviewStatus, provenance.trustLevel,
+       provenance.sourceType, provenance.evidenceJson, provenance.verifier,
+       provenance.verifiedAt, provenance.validFrom, provenance.validTo,
+       provenance.status, sourceRef, projectId]
     );
     return { status: 'saved', id: inserted.rows[0].id, matchType: 'document' };
   }
@@ -154,10 +211,10 @@ async function captureKnowledge(input, db = pool) {
 
   const scopePredicate = scopeInfo.scope === 'global'
     ? "scope = 'global'"
-    : "scope = 'project' AND ('project:' || $2::text) = ANY(tags)";
+    : "project_id = $2::text";
   const exactParams = scopeInfo.scope === 'global'
     ? [question]
-    : [question, project];
+    : [question, projectId];
 
   const exact = await db.query(
     `SELECT id, question, answer_context, tags, confidence_score
@@ -175,11 +232,11 @@ async function captureKnowledge(input, db = pool) {
   if (!target) {
     const scopeSql = scopeInfo.scope === 'global'
       ? "scope = 'global'"
-      : "scope = 'project' AND ('project:' || $2::text) = ANY(tags)";
+      : "project_id = $2::text";
     const thresholdIdx = scopeInfo.scope === 'global' ? '$2' : '$3';
     const simParams = scopeInfo.scope === 'global'
       ? [JSON.stringify(vec), SEMANTIC_DEDUP_THRESHOLD]
-      : [JSON.stringify(vec), project, SEMANTIC_DEDUP_THRESHOLD];
+      : [JSON.stringify(vec), projectId, SEMANTIC_DEDUP_THRESHOLD];
 
     const sim = await db.query(
       `SELECT id, question, answer_context, tags, confidence_score,
@@ -229,15 +286,43 @@ async function captureKnowledge(input, db = pool) {
            scope_confidence = COALESCE(scope_confidence, $12),
            scope_candidate = COALESCE(scope_candidate, $13),
            review_status = COALESCE(review_status, $14),
-           parent_id = COALESCE(parent_id, $15),
-           atom_index = COALESCE(atom_index, $16),
+           trust_level = CASE
+             WHEN trust_level IS NULL THEN $15
+             WHEN $16 > CASE trust_level
+               WHEN 'observation' THEN 1
+               WHEN 'hypothesis' THEN 2
+               WHEN 'inference' THEN 3
+               WHEN 'verified_fact' THEN 4
+               WHEN 'user_decision' THEN 5
+               ELSE 0
+             END
+             THEN $15
+             ELSE trust_level
+           END,
+           source_type = COALESCE($17, source_type),
+           evidence = CASE
+             WHEN $18::jsonb <> '[]'::jsonb THEN $18::jsonb
+             ELSE COALESCE(evidence, '[]'::jsonb)
+           END,
+           verifier = COALESCE($19, verifier),
+           verified_at = COALESCE($20, verified_at),
+           valid_from = COALESCE(valid_from, $21),
+           valid_to = COALESCE($22, valid_to),
+           status = COALESCE($23, status),
+           parent_id = COALESCE(parent_id, $24),
+           atom_index = COALESCE(atom_index, $25),
            chunk_type = COALESCE(chunk_type, 'atom'),
-           source_ref = COALESCE(source_ref, $17),
+           source_ref = COALESCE(source_ref, $26),
+           project_id = COALESCE(project_id, $27),
            updated_at = NOW()
-       WHERE id = $18`,
+       WHERE id = $28`,
       [answer, searchText, keywords, JSON.stringify(vec), source, category, mergedTags,
        confidence, scopeInfo.scope, scopeInfo.origin, scopeInfo.reason, scopeInfo.confidence,
-       scopeInfo.candidate, scopeInfo.reviewStatus, parentId, atomIndex, sourceRef, target.id]
+       scopeInfo.candidate, scopeInfo.reviewStatus, provenance.trustLevel,
+       provenance.trustRankValue, provenance.sourceType, provenance.evidenceJson,
+       provenance.verifier, provenance.verifiedAt, provenance.validFrom,
+       provenance.validTo, provenance.status, parentId, atomIndex, sourceRef,
+       projectId, target.id]
     );
 
     return { status: 'updated', id: target.id, matchType };
@@ -247,13 +332,20 @@ async function captureKnowledge(input, db = pool) {
     `INSERT INTO agent_qa_cache
        (question, answer_context, search_text, keywords, embedding, source, category, tags,
         confidence_score, scope, scope_origin, scope_reason, scope_confidence,
-        scope_candidate, review_status, parent_id, atom_index, chunk_type, source_ref)
+        scope_candidate, review_status, trust_level, source_type, evidence, verifier,
+        verified_at, valid_from, valid_to, status, parent_id, atom_index, chunk_type,
+        source_ref, project_id)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
-             $9, $10, $11, $12, $13, $14, $15, $16, $17, 'atom', $18)
+             $9, $10, $11, $12, $13, $14, $15,
+             $16, $17, $18::jsonb, $19, $20, $21, $22, $23,
+             $24, $25, 'atom', $26, $27)
      RETURNING id`,
     [question, answer, searchText, keywords, JSON.stringify(vec), source, category, tags,
      confidence, scopeInfo.scope, scopeInfo.origin, scopeInfo.reason, scopeInfo.confidence,
-     scopeInfo.candidate, scopeInfo.reviewStatus, parentId, atomIndex, sourceRef]
+     scopeInfo.candidate, scopeInfo.reviewStatus, provenance.trustLevel,
+     provenance.sourceType, provenance.evidenceJson, provenance.verifier,
+     provenance.verifiedAt, provenance.validFrom, provenance.validTo,
+     provenance.status, parentId, atomIndex, sourceRef, projectId]
   );
 
   return { status: 'saved', id: inserted.rows[0].id, matchType: 'new' };
@@ -263,5 +355,6 @@ module.exports = {
   captureKnowledge,
   resolveInputScope,
   buildTags,
+  buildProvenance,
   SEMANTIC_DEDUP_THRESHOLD,
 };

@@ -22,6 +22,12 @@ function parseArgs(args) {
     pinned: false,
     scope: null,
     allowLong: false,
+    trustLevel: null,
+    verifier: null,
+    validFrom: null,
+    validTo: null,
+    status: null,
+    evidence: [],
   };
   for (const arg of args) {
     if (arg.startsWith('--source=')) opts.source = arg.split('=')[1];
@@ -33,6 +39,12 @@ function parseArgs(args) {
       const scope = arg.split('=')[1].trim().toLowerCase();
       if (scope === 'global' || scope === 'project') opts.scope = scope;
     }
+    else if (arg.startsWith('--trust=')) opts.trustLevel = arg.split('=')[1];
+    else if (arg.startsWith('--verifier=')) opts.verifier = arg.slice('--verifier='.length);
+    else if (arg.startsWith('--valid-from=')) opts.validFrom = arg.slice('--valid-from='.length);
+    else if (arg.startsWith('--valid-to=')) opts.validTo = arg.slice('--valid-to='.length);
+    else if (arg.startsWith('--status=')) opts.status = arg.split('=')[1];
+    else if (arg.startsWith('--evidence=')) opts.evidence = arg.split('=')[1].split(',').map(t => t.trim()).filter(Boolean);
     else if (arg === '--pinned') opts.pinned = true;
     else if (arg === '--allow-long') opts.allowLong = true;
   }
@@ -41,7 +53,7 @@ function parseArgs(args) {
 
 async function saveQA(question, answer) {
   if (!question || !answer) {
-    console.log('Usage: node save-qa.js "<Question>" "<Answer>" [--source=manual] [--confidence=0.5] [--category=general] [--tags=a,b] [--project=erp] [--scope=global|project] [--pinned] [--allow-long]');
+    console.log('Usage: node save-qa.js "<Question>" "<Answer>" [--source=manual] [--confidence=0.5] [--category=general] [--tags=a,b] [--project=erp] [--scope=global|project] [--trust=...) [--verifier=...] [--pinned] [--allow-long]');
     process.exit(1);
   }
 
@@ -90,6 +102,12 @@ async function saveQA(question, answer) {
       project: opts.project,
       pinned: opts.pinned,
       scope: opts.scope,
+      trustLevel: opts.trustLevel,
+      verifier: opts.verifier,
+      validFrom: opts.validFrom,
+      validTo: opts.validTo,
+      status: opts.status,
+      evidence: opts.evidence,
     });
 
     if (result.status === 'updated') {

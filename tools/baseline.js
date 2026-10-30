@@ -22,6 +22,7 @@ const LIMIT = (() => {
   const arg = process.argv.find(a => a.startsWith('--limit='));
   return arg ? Math.max(1, Math.min(20, parseInt(arg.split('=')[1], 10) || 5)) : 5;
 })();
+const OUT_ARG = process.argv.find(a => a.startsWith('--out='))?.slice('--out='.length);
 
 const QUERIES = [
   'Universe Architecture UA là gì và cấu trúc thư mục chuẩn',
@@ -106,7 +107,9 @@ async function main() {
     results: rows,
   };
 
-  const outPath = path.join(__dirname, '..', 'docs', 'architecture', 'baseline.json');
+  const outPath = OUT_ARG
+    ? path.resolve(OUT_ARG)
+    : path.join(__dirname, '..', 'docs', 'architecture', 'baseline.json');
   fs.writeFileSync(outPath, JSON.stringify(output, null, 2) + '\n', 'utf8');
   console.log(`\n[BASELINE] wrote ${outPath}`);
   console.log(`[BASELINE] records=${total} p50=${output.latency.p50}ms p95=${output.latency.p95}ms`);

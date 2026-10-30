@@ -13,7 +13,7 @@ const PROJECT = (() => {
 })();
 
 async function getStats() {
-  const projectFilter = PROJECT ? `AND tags && ARRAY['project:${PROJECT}']::text[]` : '';
+  const projectFilter = PROJECT ? `AND project_id = '${PROJECT.replace(/'/g, "''")}'` : '';
 
   try {
     if (!JSON_MODE) console.log(`=== SEMANTIC BRAIN STATISTICS ${PROJECT ? `[project: ${PROJECT}]` : '[all projects]'} ===\n`);

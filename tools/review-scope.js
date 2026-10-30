@@ -50,6 +50,7 @@ async function approve(id) {
          scope_reason = 'approved global candidate',
          scope_candidate = NULL,
          review_status = 'approved',
+         project_id = 'global',
          tags = ARRAY(
            SELECT DISTINCT t
            FROM unnest(

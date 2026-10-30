@@ -25,7 +25,7 @@ async function curate() {
   console.log(`╚═══════════════════════════════════════════════════════════════╝\n`);
 
   try {
-    const projectFilter = PROJECT_ARG ? `AND 'project:${PROJECT_ARG}' = ANY(tags)` : '';
+    const projectFilter = PROJECT_ARG ? `AND project_id = '${PROJECT_ARG.replace(/'/g, "''")}'` : '';
 
     // 1. Fetch summary metrics
     const rows = (await pool.query(`
@@ -94,7 +94,7 @@ async function curate() {
       FROM agent_qa_cache a
       JOIN agent_qa_cache b ON a.id < b.id
       WHERE 1 - (a.embedding <=> b.embedding) >= 0.88
-        ${PROJECT_ARG ? `AND 'project:${PROJECT_ARG}' = ANY(a.tags) AND 'project:${PROJECT_ARG}' = ANY(b.tags)` : ''}
+        ${PROJECT_ARG ? `AND a.project_id = '${PROJECT_ARG.replace(/'/g, "''")}' AND b.project_id = '${PROJECT_ARG.replace(/'/g, "''")}'` : ''}
       ORDER BY similarity DESC
       LIMIT 5;
     `;

@@ -80,6 +80,8 @@ async function handleFindQA(query, mode, tags, project = null, allProjects = fal
       score: +(top.final_score * 100).toFixed(0),
       confidence: top.confidence_score,
       scope: top.scope,
+      project_id: top.project_id,
+      trust_level: top.trust_level,
       parent_id: top.parent_id,
       question: top.question,
       answer: top.answer_context,
@@ -207,6 +209,14 @@ async function handleSaveQA(question, answer, opts = {}) {
     project: opts.project || null,
     pinned: Boolean(opts.pinned),
     scope: opts.scope || null,
+    trustLevel: opts.trust_level || opts.trustLevel || null,
+    sourceType: opts.source_type || opts.sourceType || null,
+    evidence: opts.evidence || [],
+    verifier: opts.verifier || null,
+    verifiedAt: opts.verified_at || opts.verifiedAt || null,
+    validFrom: opts.valid_from || opts.validFrom || null,
+    validTo: opts.valid_to || opts.validTo || null,
+    status: opts.status || null,
   });
 }
 
@@ -461,6 +471,12 @@ const server = http.createServer(async (req, res) => {
           sourceRef: ingestBody.source_ref || ingestBody.sourceRef || null,
           tags: Array.isArray(ingestBody.tags) ? ingestBody.tags : [],
           confidence: ingestBody.confidence !== undefined ? ingestBody.confidence : 0.6,
+          trustLevel: ingestBody.trust_level || ingestBody.trustLevel || null,
+          sourceType: ingestBody.source_type || ingestBody.sourceType || null,
+          verifier: ingestBody.verifier || null,
+          validFrom: ingestBody.valid_from || ingestBody.validFrom || null,
+          validTo: ingestBody.valid_to || ingestBody.validTo || null,
+          status: ingestBody.status || null,
         });
         respond(result);
         break;

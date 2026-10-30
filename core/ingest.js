@@ -19,6 +19,13 @@ const { captureKnowledge } = require('./knowledge');
  * @param {boolean} [input.structured]
  * @param {boolean} [input.createParent=true]
  * @param {object[]} [input.atoms]  agent-provided atoms; no LLM is called
+ * @param {string} [input.trustLevel]
+ * @param {string} [input.sourceType]
+ * @param {string|null} [input.verifier]
+ * @param {Date|string} [input.verifiedAt]
+ * @param {Date|string} [input.validFrom]
+ * @param {Date|string|null} [input.validTo]
+ * @param {string} [input.status]
  * @param {object} [opts]
  * @param {object} [opts.db]
  * @returns {Promise<{count:number, parentId:number|null, ids:number[]}>}
@@ -54,6 +61,13 @@ async function ingestText(input = {}, opts = {}) {
       scopeHintConfidence: atoms[0].scopeConfidence,
       chunkType: 'document',
       sourceRef,
+      trustLevel: input.trustLevel,
+      sourceType: input.sourceType,
+      verifier: input.verifier,
+      verifiedAt: input.verifiedAt,
+      validFrom: input.validFrom,
+      validTo: input.validTo,
+      status: input.status,
     }, db);
     parentId = parent.id;
   }
@@ -75,6 +89,14 @@ async function ingestText(input = {}, opts = {}) {
       atomIndex: i,
       chunkType: 'atom',
       sourceRef,
+      trustLevel: input.trustLevel,
+      sourceType: input.sourceType,
+      verifier: input.verifier,
+      verifiedAt: input.verifiedAt,
+      validFrom: input.validFrom,
+      validTo: input.validTo,
+      status: input.status,
+      evidence: atom.evidence,
     }, db);
     ids.push(result.id);
   }
