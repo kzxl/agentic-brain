@@ -43,12 +43,12 @@ function isAuthorized(req) {
 // Route handlers
 // ============================================================
 
-async function handleFindQA(query, mode, tags, project = null, resStream = null) {
+async function handleFindQA(query, mode, tags, project = null, allProjects = false, resStream = null) {
   const tokens = tokenize(query);
   const vec = await embed(query);
   const filterTags = Array.isArray(tags) && tags.length > 0 ? tags : null;
 
-  const qq = qaRankingQuery({ limit: 3, project });
+  const qq = qaRankingQuery({ limit: 3, project, allProjects });
   const result = await pool.query(
     qq.text,
     qq.params(tokens, JSON.stringify(vec), filterTags, query, project)
@@ -257,7 +257,7 @@ async function handleFindTags(tagsStr, mode) {
 // ============================================================
 // Find QA Deep (Iterative Reasoning with References)
 // ============================================================
-async function handleFindQADeep(question, tags, project = null, maxDepth = 3) {
+async function handleFindQADeep(question, tags, project = null, allProjects = false, maxDepth = 3) {
   const MAX_DEPTH = maxDepth;
   const visited = new Set();
 
@@ -289,7 +289,7 @@ async function handleFindQADeep(question, tags, project = null, maxDepth = 3) {
       const vec = await embed(q);
       const filterTags = Array.isArray(tags) && tags.length > 0 ? tags : null;
 
-      const qq = qaRankingQuery({ limit: 1, project });
+      const qq = qaRankingQuery({ limit: 1, project, allProjects });
       result = await pool.query(
         qq.text,
         qq.params(tokens, JSON.stringify(vec), filterTags, q, project)
@@ -417,12 +417,13 @@ const server = http.createServer(async (req, res) => {
         const qaQuery = (q.q || '').toLowerCase();
         const qaMode = q.mode || 'smart';
         const qaProject = q.project || null;
+        const qaAll = q.all_projects === 'true';
         const qaTags = q.tags ? q.tags.split(',').map(t => t.trim()).filter(t => t) : null;
         if (q.stream === 'true') {
-          const resObj = await handleFindQA(qaQuery, qaMode, qaTags, qaProject, res);
+          const resObj = await handleFindQA(qaQuery, qaMode, qaTags, qaProject, qaAll, res);
           if (resObj) respond(resObj);
         } else {
-          respond(await handleFindQA(qaQuery, qaMode, qaTags, qaProject));
+          respond(await handleFindQA(qaQuery, qaMode, qaTags, qaProject, qaAll));
         }
         break;
       }
@@ -442,9 +443,10 @@ const server = http.createServer(async (req, res) => {
       case '/find-qa-deep': {
         const deepQuery = (q.q || '').toLowerCase();
         const deepProject = q.project || null;
+        const deepAll = q.all_projects === 'true';
         const deepTags = q.tags ? q.tags.split(',').map(t => t.trim()).filter(t => t) : null;
         const maxDepth = parseInt(q.depth) || 3;
-        respond(await handleFindQADeep(deepQuery, deepTags, deepProject, maxDepth));
+        respond(await handleFindQADeep(deepQuery, deepTags, deepProject, deepAll, maxDepth));
         break;
       }
 

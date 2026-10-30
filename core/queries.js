@@ -19,7 +19,9 @@
  * @param {number} opts.limit - Max results (default 3)
  * @param {number} opts.minSimilarity - Min cosine similarity threshold (default 0.35)
  * @param {boolean} opts.withTags - Include tag filtering (default true)
- * @returns {{ text: string, params: (tokens, vec, tags, rawQuery) => any[] }}
+ * @param {string} [opts.project] - Project scope; when omitted, only global knowledge is searched
+ * @param {boolean} [opts.allProjects] - Explicit cross-project search (admin/analytics)
+ * @returns {{ text: string, params: (tokens, vec, tags, rawQuery, project) => any[] }}
  */
 function qaRankingQuery(opts = {}) {
   const limit = Math.max(1, Math.min(100, parseInt(opts.limit, 10) || 3));
@@ -27,11 +29,16 @@ function qaRankingQuery(opts = {}) {
     ? Math.max(0, Math.min(1, Number(opts.minSimilarity)))
     : 0.35;
   const withTags = opts.withTags !== false;
+  const allProjects = opts.allProjects === true;
+  const project = opts.project || null;
+  const projectIdx = withTags ? '$5' : '$4';
 
   const tagFilter = withTags ? '($2::text[] IS NULL OR tags && $2::text[])' : 'TRUE';
-  const projectFilter = withTags
-    ? "($5::text IS NULL OR $5::text = ANY(tags) OR 'project:global' = ANY(tags))"
-    : "($4::text IS NULL OR $4::text = ANY(tags) OR 'project:global' = ANY(tags))";
+  const projectFilter = allProjects
+    ? 'TRUE'
+    : (project
+        ? `(('project:' || ${projectIdx}::text) = ANY(tags) OR 'project:global' = ANY(tags))`
+        : "('project:global' = ANY(tags))");
   const limitParam = withTags ? '$4' : '$3';
   const rawQueryIdx = withTags ? '$3' : '$2';
 
@@ -75,12 +82,16 @@ function qaRankingQuery(opts = {}) {
      * @param {string} rawQuery
      * @param {string|null} project  project name (without the `project:` prefix)
      */
-    params(tokens, vecJson, tags = null, rawQuery = '', project = null) {
+    params(tokens, vecJson, tags = null, rawQuery = '', projectArg = null) {
       const q = rawQuery || (tokens || []).join(' ');
+      // The SQL scope decision is made from opts. Do not inject a project
+      // parameter when the query was built as global-only or all-projects.
+      const p = project ? (projectArg || project) : null;
+
       if (withTags) {
-        return [vecJson, tags, q, limit, project];
+        return p ? [vecJson, tags, q, limit, p] : [vecJson, tags, q, limit];
       }
-      return [vecJson, q, limit, project];
+      return p ? [vecJson, q, limit, p] : [vecJson, q, limit];
     }
   };
 }

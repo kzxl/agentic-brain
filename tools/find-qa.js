@@ -16,6 +16,7 @@ const PROJECT = (() => {
   const arg = process.argv.find(a => a.startsWith('--project='));
   return arg ? arg.split('=')[1].trim().toLowerCase() : null;
 })();
+const ALL_PROJECTS = process.argv.includes('--all-projects');
 const TAGS = (() => {
   const arg = process.argv.find(a => a.startsWith('--tags='));
   const raw = arg ? arg.split('=')[1].split(',').map(t => t.trim()).filter(t => t) : [];
@@ -25,7 +26,7 @@ const NO_AUTO = process.argv.includes('--no-auto');
 
 async function findQA(question) {
   if (!question || question.trim().length === 0) {
-    console.log('Usage: node tools/find-qa.js "<Question>" [--raw] [--backend=ame|postgres]');
+    console.log('Usage: node tools/find-qa.js "<Question>" [--raw] [--backend=ame|postgres] [--project=erp] [--all-projects]');
     process.exit(1);
   }
 
@@ -61,7 +62,8 @@ async function findQA(question) {
     let isFirstToken = true;
     const tagsParam = TAGS.length > 0 ? `&tags=${encodeURIComponent(TAGS.join(','))}` : '';
     const projectParam = PROJECT ? `&project=${encodeURIComponent(PROJECT)}` : '';
-    const serverResult = await streamServer(`/find-qa?q=${encodeURIComponent(question)}&mode=${MODE}${tagsParam}${projectParam}&stream=true`, (token) => {
+    const allProjectsParam = ALL_PROJECTS ? '&all_projects=true' : '';
+    const serverResult = await streamServer(`/find-qa?q=${encodeURIComponent(question)}&mode=${MODE}${tagsParam}${projectParam}${allProjectsParam}&stream=true`, (token) => {
       if (isFirstToken) {
         console.log(`[QA SMART] (server: fast, stream: active)`);
         console.log(`Q: ${question}`);
@@ -97,7 +99,7 @@ async function findQA(question) {
 
   try {
     const filterTags = TAGS.length > 0 ? TAGS : null;
-    const qq = qaRankingQuery({ limit: 3, project: PROJECT });
+    const qq = qaRankingQuery({ limit: 3, project: PROJECT, allProjects: ALL_PROJECTS });
     const result = await pool.query(qq.text, qq.params(tokens, JSON.stringify(vec), filterTags, query, PROJECT));
     if (result.rows.length === 0) {
       if (!NO_AUTO && config.autoQa && (process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY)) {

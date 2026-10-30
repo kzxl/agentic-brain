@@ -22,6 +22,7 @@ const PROJECT = (() => {
   const arg = process.argv.find(a => a.startsWith('--project='));
   return arg ? arg.split('=')[1].trim().toLowerCase() : null;
 })();
+const ALL_PROJECTS = process.argv.includes('--all-projects');
 
 function inferTagsFromGit() {
   try {
@@ -119,14 +120,14 @@ async function resolveActiveBackend() {
 /**
  * Search DB với 1 query, return top rows
  */
-async function searchOne(question, tagsFilter, activeBackend, project) {
+async function searchOne(question, tagsFilter, activeBackend, project, allProjects) {
   if (activeBackend === 'ame') {
     try {
       return await storageAme.queryContext(question, {
         limit: 5,
         minSimilarity: MIN_SCORE,
         tags: tagsFilter,
-        project
+        project: allProjects ? null : project
       });
     } catch (e) {
       return [];
@@ -139,7 +140,12 @@ async function searchOne(question, tagsFilter, activeBackend, project) {
   const vec = await embed(query);
 
   const filterTags = tagsFilter.length > 0 ? tagsFilter : null;
-  const qq = qaRankingQuery({ limit: 5, minSimilarity: MIN_SCORE, project });
+  const qq = qaRankingQuery({
+    limit: 5,
+    minSimilarity: MIN_SCORE,
+    project,
+    allProjects,
+  });
   const result = await pool.query(
     qq.text,
     qq.params(tokens, JSON.stringify(vec), filterTags, query, project)
@@ -155,6 +161,7 @@ async function findQAContext(taskDescription) {
   const activeBackend = await resolveActiveBackend();
   console.log(`[CONTEXT SWEEP] Task: "${taskDescription}"`);
   console.log(`[CONTEXT SWEEP] Backend: ${activeBackend === 'ame' ? '⚡ AME (Sub-millisecond Cognitive)' : '🐘 PostgreSQL'}`);
+  console.log(`[CONTEXT SWEEP] Scope: ${ALL_PROJECTS ? 'all projects (explicit)' : PROJECT ? `project:${PROJECT} + global` : 'global only'}`);
   console.log(`[CONTEXT SWEEP] Tags filter: ${TAGS.length > 0 ? TAGS.join(',') : 'none'}\n`);
 
   const queries = decomposeToQueries(taskDescription);
@@ -166,7 +173,7 @@ async function findQAContext(taskDescription) {
 
   for (const q of queries) {
     try {
-      const rows = await searchOne(q, TAGS, activeBackend, PROJECT);
+      const rows = await searchOne(q, TAGS, activeBackend, PROJECT, ALL_PROJECTS);
       rows.forEach((row, index) => {
         const rank = index + 1;
         const crossRrfAdd = 1.0 / (60.0 + rank);
@@ -249,7 +256,7 @@ async function findQAContext(taskDescription) {
 // Entry
 (async () => {
   if (!task) {
-    console.log('Usage: node tools/find-qa-context.js "<task description>" [--tags=ua,winforms] [--limit=8]');
+    console.log('Usage: node tools/find-qa-context.js "<task description>" [--tags=ua,winforms] [--limit=8] [--project=erp] [--all-projects]');
     process.exit(1);
   }
 

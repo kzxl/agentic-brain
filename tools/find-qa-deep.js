@@ -23,6 +23,7 @@ const PROJECT = (() => {
   const arg = process.argv.find(a => a.startsWith('--project='));
   return arg ? arg.split('=')[1].trim().toLowerCase() : null;
 })();
+const ALL_PROJECTS = process.argv.includes('--all-projects');
 
 async function findQADeep(question, depth = 0) {
   if (depth >= MAX_DEPTH) {
@@ -37,7 +38,7 @@ async function findQADeep(question, depth = 0) {
   const tokens = tokenize(query);
   const vec = await embed(query);
 
-  const qq = qaRankingQuery({ limit: 1, project: PROJECT });
+  const qq = qaRankingQuery({ limit: 1, project: PROJECT, allProjects: ALL_PROJECTS });
   const result = await pool.query(qq.text, qq.params(tokens, JSON.stringify(vec), null, query, PROJECT));
 
   if (result.rows.length === 0) {
@@ -178,7 +179,7 @@ ${originalQuestion}
   const question = process.argv[2];
 
   if (!question) {
-    console.log('Usage: node find-qa-deep.js "<Question>"');
+    console.log('Usage: node find-qa-deep.js "<Question>" [--project=erp] [--all-projects] [--raw]');
     console.log('Example: node find-qa-deep.js "How to refactor to UA?"');
     process.exit(1);
   }
