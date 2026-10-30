@@ -232,7 +232,7 @@ async function findQAContext(taskDescription) {
       const cleanAnswer = (row.answer_context || '').replace(/\r?\n+/g, ' ').trim();
       const preview = cleanAnswer.length > 140 ? cleanAnswer.substring(0, 137) + '...' : cleanAnswer;
 
-      console.log(`[#${row.id}] (${score}% match) [${tags}] ${row.question}`);
+      console.log(`[#${row.id}] (${score}% match) [${tags}]${row.scope ? ` [${row.scope}]` : ''} ${row.question}`);
       console.log(`      └─ Gotcha/Fix: ${preview}`);
     });
     console.log(`\n💡 To view detailed root cause & code snippet for any entry, run: node brain.js view <id>`);
@@ -241,7 +241,7 @@ async function findQAContext(taskDescription) {
       const score = (row.max_db_score * 100).toFixed(0);
       const rrfDisplay = (row.cross_rrf_score * 100).toFixed(1);
       const tags = (row.tags || []).join(', ');
-      console.log(`--- [${i + 1}] QA #${row.id} | DB_Score: ${score}% | Cross_RRF: ${rrfDisplay} | Tags: ${tags} ---`);
+      console.log(`--- [${i + 1}] QA #${row.id} | DB_Score: ${score}% | Cross_RRF: ${rrfDisplay} | Scope: ${row.scope || '?'} | Tags: ${tags} ---`);
       console.log(`Q: ${row.question}`);
       console.log(`A: ${row.answer_context}`);
       console.log(`   [matched via: ${row.matched_queries.map(q => `"${q}"`).join(', ')}]\n`);

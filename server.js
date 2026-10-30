@@ -79,6 +79,8 @@ async function handleFindQA(query, mode, tags, project = null, allProjects = fal
       status: 'HIT',
       score: +(top.final_score * 100).toFixed(0),
       confidence: top.confidence_score,
+      scope: top.scope,
+      parent_id: top.parent_id,
       question: top.question,
       answer: top.answer_context,
     };

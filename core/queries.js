@@ -45,6 +45,7 @@ function qaRankingQuery(opts = {}) {
   const text = `
     WITH base_filter AS (
       SELECT id, question, answer_context, confidence_score, tags, updated_at, use_count,
+        scope, chunk_type, parent_id,
         1 - (embedding <=> $1::vector) AS vector_similarity,
         ts_rank_cd(to_tsvector('simple', COALESCE(question, '') || ' ' || COALESCE(answer_context, '')), plainto_tsquery('simple', ${rawQueryIdx})) AS fts_score,
         GREATEST(1.0 - LEAST(EXTRACT(EPOCH FROM NOW() - updated_at) / (86400.0 * 180), 0.3), 0.7) AS freshness
