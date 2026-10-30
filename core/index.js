@@ -12,6 +12,9 @@ const { callServer, streamServer, isServerUp, PORT: SERVER_PORT } = require('./c
 const { qaRankingQuery, recipeRankingQuery, skillRankingQuery, tokenize } = require('./queries');
 const storageAme = require('./storage-ame');
 const { captureKnowledge } = require('./knowledge');
+const { resolveScope } = require('./scope');
+const { normalizeKnowledge, validateAtoms } = require('./normalizer');
+const { ingestText } = require('./ingest');
 
 module.exports = {
   config,
@@ -23,4 +26,8 @@ module.exports = {
   qaRankingQuery, recipeRankingQuery, skillRankingQuery, tokenize,
   storageAme,
   captureKnowledge,
+  resolveScope,
+  normalizeKnowledge,
+  validateAtoms,
+  ingestText,
 };

@@ -1,30 +1,23 @@
 #!/usr/bin/env node
 /**
- * auto-harvest.js — Post-Task Self-Learning Pipeline
+ * auto-harvest.js — Post-task atomic ingestion.
  *
- * Nhận text tóm tắt (walkthrough/summary) → dùng LLM phân tích →
- * tách thành atomic QA pairs → lưu DB tự động.
+ * The LLM proposes atomic lessons; the normalizer validates them; the ingest
+ * pipeline stores a parent document (when needed) plus one row per atom.
  *
  * Usage:
  *   node auto-harvest.js "<summary text>" --tags=ua,inventory
  *   node auto-harvest.js --file=walkthrough.md --tags=ua,refactor
- *   node auto-harvest.js "<summary>" --tags=ua --dry-run    # Preview only
- *
- * LLM sẽ:
- *   1. Phân tích text, extract bài học kỹ thuật
- *   2. Lọc spam (typo, env-specific, one-off code)
- *   3. Tách thành atomic Q&A pairs
- *   4. Gắn tags phù hợp
+ *   node auto-harvest.js "<summary>" --tags=ua --dry-run
  */
-const { pool, askLLM, captureKnowledge } = require('../core');
 const fs = require('fs');
 const path = require('path');
+const { pool, normalizeKnowledge, ingestText } = require('../core');
 
-// Parse args
 const DRY_RUN = process.argv.includes('--dry-run');
 const TAGS = (() => {
   const arg = process.argv.find(a => a.startsWith('--tags='));
-  return arg ? arg.split('=')[1].split(',').map(t => t.trim()).filter(t => t) : [];
+  return arg ? arg.split('=')[1].split(',').map(t => t.trim()).filter(Boolean) : [];
 })();
 const FILE_ARG = process.argv.find(a => a.startsWith('--file='))?.split('=')[1];
 const TEXT_ARG = process.argv[2];
@@ -32,31 +25,6 @@ const PROJECT = (() => {
   const tag = TAGS.find(t => t.startsWith('project:'));
   return tag ? tag.slice('project:'.length) : null;
 })();
-
-const SYSTEM_PROMPT = `You are a technical knowledge extraction expert for developer coding sessions.
-
-TASK: Analyze the provided walkthrough/summary and extract generalizable technical lessons as Q&A pairs.
-
-SPAM & NOISE FILTER (STRICT):
-- ✅ SAVE: Generalizable design patterns, architectural decisions, common bug patterns (root cause + fix principles), performance optimizations, and framework-level tricks (e.g. WinForms, DevExpress, WebAPI).
-- ❌ IGNORE: Typos, syntax errors, environment configurations, and file-specific/feature-specific business logic (e.g., "how to fix UI alignment in ucStockIn.cs", "renaming controls in ucDetailedError"). Avoid saving rules that only apply to a single class and cannot be reused elsewhere.
-
-ATOMIC RULES:
-- 1 Q&A pair = 1 single lesson.
-- Question must be a natural search query that another developer would type (English or Vietnamese is fine, but English is preferred).
-- **Answer MUST be written in ultra-concise, Telegraphic English** (max 150 words). Use bullet points, omit conversational filler, and keep code blocks intact.
-- Tags must be specific and multi-dimensional (domain/module, pattern/architecture, skill/workflow).
-
-OUTPUT: Return raw JSON array (no markdown code blocks):
-[
-  {
-    "question": "Natural search query?",
-    "answer": "Telegraphic English answer.",
-    "tags": ["tag1", "tag2"]
-  }
-]
-
-If NO valuable, generalizable lesson is found, return: []`;
 
 async function harvest(inputText) {
   if (!inputText || inputText.trim().length < 50) {
@@ -66,112 +34,63 @@ async function harvest(inputText) {
     process.exit(1);
   }
 
-  console.log(`╔═══════════════════════════════════════════════╗`);
-  console.log(`║  AUTO-HARVEST — Post-Task Self-Learning       ║`);
+  const sourceRef = FILE_ARG
+    ? path.resolve(FILE_ARG)
+    : `auto-harvest:${Date.now()}`;
+
+  console.log('╔═══════════════════════════════════════════════╗');
+  console.log('║  AUTO-HARVEST — Atomic Knowledge Ingestion    ║');
   console.log(`║  Mode: ${DRY_RUN ? 'DRY-RUN (preview)' : '⚡ SAVE (writing DB)'}${DRY_RUN ? '       ' : '       '}║`);
-  console.log(`╚═══════════════════════════════════════════════╝\n`);
+  console.log('╚═══════════════════════════════════════════════╝\n');
 
   console.log(`[INPUT] ${inputText.length} chars | Tags: ${TAGS.length > 0 ? TAGS.join(',') : 'auto-detect'}`);
-  console.log(`[LLM] Analyzing and extracting knowledge...\n`);
+  console.log(`[LLM] Extracting atomic lessons...\n`);
 
-  // Ask LLM to extract atomic QA pairs
-  const prompt = `=== PHIÊN LÀM VIỆC ===\n${inputText}\n\n=== EXTRACTION ===\nPhân tích và trả về JSON array các bài học:`;
-
-  const result = await askLLM(prompt, { system: SYSTEM_PROMPT, maxTokens: 1500 });
-
-  // Parse LLM response
-  let pairs = [];
+  let normalized;
   try {
-    // Try direct parse
-    let jsonText = result.text.trim();
-    // Strip markdown code blocks if present
-    jsonText = jsonText.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-    pairs = JSON.parse(jsonText);
-  } catch (e) {
-    // Try to extract JSON array from mixed text
-    const match = result.text.match(/\[[\s\S]*\]/);
-    if (match) {
-      try {
-        pairs = JSON.parse(match[0]);
-      } catch (e2) {
-        console.error('[ERROR] LLM returned invalid JSON:', result.text.substring(0, 200));
-        process.exit(1);
-      }
-    } else {
-      console.log('[SKIP] LLM found no knowledge worth saving.');
-      process.exit(0);
-    }
-  }
-
-  if (!Array.isArray(pairs) || pairs.length === 0) {
-    console.log('[SKIP] No actionable knowledge extracted (spam filter active).');
-    process.exit(0);
-  }
-
-  // Validate and display
-  console.log(`[EXTRACTED] ${pairs.length} atomic QA pairs:\n`);
-
-  const validPairs = [];
-  for (let i = 0; i < pairs.length; i++) {
-    const p = pairs[i];
-    if (!p.question || !p.answer) {
-      console.log(`  [${i + 1}] ⚠️ SKIP — missing question or answer`);
-      continue;
-    }
-    if (p.answer.length < 15) {
-      console.log(`  [${i + 1}] ⚠️ SKIP — answer too short (${p.answer.length} chars)`);
-      continue;
-    }
-
-    // Merge input tags with LLM-suggested tags
-    const mergedTags = [...new Set([...TAGS, ...(p.tags || [])])];
-
-    console.log(`  [${i + 1}] Q: ${p.question}`);
-    console.log(`     A: ${p.answer.substring(0, 120)}${p.answer.length > 120 ? '...' : ''}`);
-    console.log(`     Tags: ${mergedTags.join(', ')}\n`);
-
-    validPairs.push({ ...p, tags: mergedTags });
-  }
-
-  if (validPairs.length === 0) {
-    console.log('[RESULT] No valid pairs after filtering.');
-    process.exit(0);
-  }
-
-  // Save to DB
-  if (DRY_RUN) {
-    console.log(`\n[DRY-RUN] ${validPairs.length} pairs would be saved. Run without --dry-run to save.`);
+    normalized = await normalizeKnowledge({
+      text: inputText,
+      project: PROJECT,
+      sourceRef,
+    });
+  } catch (err) {
+    console.error(`[HARVEST REJECTED] ${err.code || 'ERROR'}: ${err.message}`);
+    process.exitCode = 1;
     return;
   }
 
-  console.log(`\n[SAVING] Writing ${validPairs.length} entries to DB...`);
-  let saved = 0;
-
-  for (const p of validPairs) {
-    try {
-      const result = await captureKnowledge({
-        question: p.question,
-        answer: p.answer,
-        source: 'auto-harvest',
-        confidence: 0.6,
-        tags: p.tags,
-        project: PROJECT,
-      });
-      const label = result.status === 'updated' ? `[~] Updated existing QA #${result.id}` : `[+] Saved QA #${result.id}`;
-      console.log(`  ${label}`);
-      saved++;
-    } catch (err) {
-      console.error(`  [!] Error saving "${p.question.substring(0, 40)}...": ${err.message}`);
-    }
+  if (!normalized.atoms || normalized.atoms.length === 0) {
+    console.log('[SKIP] No atomic lessons extracted (spam filter / no durable lesson).');
+    return;
   }
 
-  console.log(`\n[DONE] ${saved}/${validPairs.length} QA pairs saved (source: auto-harvest, conf: 0.6)`);
+  console.log(`[EXTRACTED] ${normalized.atoms.length} atomic lesson(s):\n`);
+  normalized.atoms.forEach((atom, i) => {
+    console.log(`  [${i + 1}] Q: ${atom.question}`);
+    console.log(`     A: ${atom.answer.substring(0, 140)}${atom.answer.length > 140 ? '...' : ''}`);
+    console.log(`     Scope hint: ${atom.scopeHint || 'auto'} (${atom.scopeConfidence}) | Tags: ${atom.tags.join(', ') || '-'}\n`);
+  });
+
+  if (DRY_RUN) {
+    console.log(`[DRY-RUN] ${normalized.atoms.length} atom(s) would be saved. Run without --dry-run to save.`);
+    return;
+  }
+
+  const result = await ingestText({
+    text: inputText,
+    atoms: normalized.atoms,
+    project: PROJECT,
+    source: 'auto-harvest',
+    sourceRef,
+    tags: TAGS,
+    confidence: 0.6,
+  });
+
+  console.log(`\n[DONE] ${result.count} atom(s) saved (parent: ${result.parentId || 'none'}, source: auto-harvest, conf: 0.6)`);
 }
 
-// Entry
 (async () => {
   let inputText;
-
   if (FILE_ARG) {
     const filePath = path.resolve(FILE_ARG);
     if (!fs.existsSync(filePath)) {
@@ -187,7 +106,8 @@ async function harvest(inputText) {
     await harvest(inputText);
   } catch (err) {
     console.error('[ERROR]', err.message);
+    process.exitCode = 1;
   } finally {
-    await pool.end();
+    await pool.end().catch(() => {});
   }
 })();

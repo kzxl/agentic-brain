@@ -11,7 +11,7 @@
 const http = require('http');
 const url = require('url');
 const crypto = require('crypto');
-const { pool, embed, askLocal, tokenize, qaRankingQuery, recipeRankingQuery, skillRankingQuery, captureKnowledge } = require('./core');
+const { pool, embed, askLocal, tokenize, qaRankingQuery, recipeRankingQuery, skillRankingQuery, captureKnowledge, ingestText } = require('./core');
 const config = require('./core/config');
 
 const PORT = config.server.port;
@@ -105,14 +105,14 @@ async function handleFindQA(query, mode, tags, project = null, allProjects = fal
       resStream.write(`data: ${JSON.stringify({ token })}\n\n`);
     });
 
-    // Auto-save with quality gate; never raises confidence.
-    if (finalAns.text.length > 50 && top.final_score > 0.5) {
-      captureKnowledge({
-        question: query,
-        answer: finalAns.text,
-        source: 'smart-rag',
-        confidence: 0.5,
+    // Optional auto-save. Disabled by default; when enabled, normalize into atoms.
+    if (config.smartAutoSave && finalAns.text.length > 50 && top.final_score > 0.5) {
+      ingestText({
+        text: `Q: ${query}\nA: ${finalAns.text}`,
         project,
+        source: 'smart-rag',
+        sourceRef: `smart-rag:${Date.now()}`,
+        confidence: 0.5,
       }).catch(err => console.error('[AUTO-SAVE]', err.message));
     }
 
@@ -131,14 +131,14 @@ async function handleFindQA(query, mode, tags, project = null, allProjects = fal
   } else {
     const llmResult = await askLocal(prompt, { system });
 
-    // Auto-save with quality gate; never raises confidence.
-    if (llmResult.text.length > 50 && top.final_score > 0.5) {
-      captureKnowledge({
-        question: query,
-        answer: llmResult.text,
-        source: 'smart-rag',
-        confidence: 0.5,
+    // Optional auto-save. Disabled by default; when enabled, normalize into atoms.
+    if (config.smartAutoSave && llmResult.text.length > 50 && top.final_score > 0.5) {
+      ingestText({
+        text: `Q: ${query}\nA: ${llmResult.text}`,
         project,
+        source: 'smart-rag',
+        sourceRef: `smart-rag:${Date.now()}`,
+        confidence: 0.5,
       }).catch(err => console.error('[AUTO-SAVE]', err.message));
     }
 
@@ -205,6 +205,12 @@ async function handleSaveQA(question, answer, opts = {}) {
     throw err;
   }
 
+  if (answer.length > 2000 && !opts.allow_long && !opts.allowLong) {
+    const err = new Error('answer exceeds 2000 characters; split into atomic lessons or pass allow_long=true');
+    err.status = 400;
+    throw err;
+  }
+
   const tags = Array.isArray(opts.tags)
     ? opts.tags
     : (typeof opts.tags === 'string'
@@ -220,6 +226,7 @@ async function handleSaveQA(question, answer, opts = {}) {
     confidence: opts.confidence !== undefined ? opts.confidence : 0.5,
     project: opts.project || null,
     pinned: Boolean(opts.pinned),
+    scope: opts.scope || null,
   });
 }
 

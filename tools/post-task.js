@@ -125,9 +125,14 @@ console.log(`╚═════════════════════�
 console.log(`── Step 1: ${DIRECT ? 'Direct Save (bypass LLM)' : 'Auto-Harvest Knowledge'} ──`);
 try {
   if (DIRECT) {
-    const parts = inputText.includes('|') ? inputText.split('|') : [inputText, inputText];
-    const question = parts[0].trim();
-    const answer = parts.slice(1).join('|').trim() || question;
+    const parts = inputText.split('|').map(p => p.trim()).filter(Boolean);
+    if (parts.length < 2) {
+      console.error('[HARVEST REJECTED] --direct requires "<problem> | <cause> | <fix>" or "<problem> | <solution>".');
+      console.error('                   Use the normal (LLM) harvest for long walkthroughs, or --file for atomic extraction.');
+      process.exit(1);
+    }
+    const question = parts[0];
+    const answer = parts.slice(1).join(' | ');
 
     const saveArgs = [
       path.join(TOOLS_DIR, 'save-qa.js'),

@@ -20,6 +20,8 @@ function parseArgs(args) {
     confidence: 0.5,
     project: null,
     pinned: false,
+    scope: null,
+    allowLong: false,
   };
   for (const arg of args) {
     if (arg.startsWith('--source=')) opts.source = arg.split('=')[1];
@@ -27,18 +29,28 @@ function parseArgs(args) {
     else if (arg.startsWith('--confidence=')) opts.confidence = parseFloat(arg.split('=')[1]);
     else if (arg.startsWith('--tags=')) opts.tags = arg.split('=')[1].split(',').map(t => t.trim()).filter(Boolean);
     else if (arg.startsWith('--project=')) opts.project = arg.split('=')[1].trim().toLowerCase();
+    else if (arg.startsWith('--scope=')) {
+      const scope = arg.split('=')[1].trim().toLowerCase();
+      if (scope === 'global' || scope === 'project') opts.scope = scope;
+    }
     else if (arg === '--pinned') opts.pinned = true;
+    else if (arg === '--allow-long') opts.allowLong = true;
   }
   return opts;
 }
 
 async function saveQA(question, answer) {
   if (!question || !answer) {
-    console.log('Usage: node save-qa.js "<Question>" "<Answer>" [--source=manual] [--confidence=0.5] [--category=general] [--tags=a,b] [--project=erp] [--pinned]');
+    console.log('Usage: node save-qa.js "<Question>" "<Answer>" [--source=manual] [--confidence=0.5] [--category=general] [--tags=a,b] [--project=erp] [--scope=global|project] [--pinned] [--allow-long]');
     process.exit(1);
   }
 
   const opts = parseArgs(process.argv.slice(4));
+
+  if (answer.length > 2000 && !opts.allowLong) {
+    console.error('[REJECTED] Answer exceeds 2000 characters. Split it into atomic lessons or pass --allow-long explicitly.');
+    process.exit(1);
+  }
 
   try {
     // AME is opt-in. backend=ame requires it; backend=postgres does not.
@@ -77,6 +89,7 @@ async function saveQA(question, answer) {
       confidence: opts.confidence,
       project: opts.project,
       pinned: opts.pinned,
+      scope: opts.scope,
     });
 
     if (result.status === 'updated') {

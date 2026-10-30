@@ -60,6 +60,7 @@ const config = {
   },
   autoQa: process.env.AUTO_QA_ENABLED === 'true',
   proxyAutoHarvest: process.env.PROXY_AUTO_HARVEST === 'true',
+  smartAutoSave: process.env.SMART_AUTO_SAVE === 'true',
   useSignal: process.env.USE_SIGNAL === 'true',
   retrieval: {
     candidateK: parseInt(process.env.RETRIEVAL_CANDIDATE_K || '100'),

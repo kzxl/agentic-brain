@@ -15,7 +15,7 @@ const url = require('url');
 const crypto = require('crypto');
 const config = require('./core/config');
 const client = require('./core/client');
-const { captureKnowledge } = require('./core');
+const { ingestText } = require('./core');
 
 const PROXY_PORT = parseInt(process.env.PROXY_PORT || '3458');
 const PROXY_HOST = process.env.BIND_HOST || '127.0.0.1';
@@ -94,13 +94,13 @@ async function evaluateAndSave(question, answer, project = null) {
   if (!hasCode && !isTechQuestion) return;
 
   console.log(`\n[PROXY: Auto-Harvest] Ghi nhận tri thức mới: "${qTrim.substring(0, 40).replace(/\n/g, ' ')}..."`);
-  await captureKnowledge({
-    question: qTrim,
-    answer: aTrim,
+  await ingestText({
+    text: `Q: ${qTrim}\nA: ${aTrim}`,
+    project,
     source: 'proxy-auto',
+    sourceRef: `proxy:${Date.now()}`,
     confidence: 0.5,
     tags: ['unverified'],
-    project,
   });
 }
 

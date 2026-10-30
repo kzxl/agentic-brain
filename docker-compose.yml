@@ -28,6 +28,7 @@ services:
       - AME_ENABLED=false
       - AME_WRITE=false
       - AUTO_QA_ENABLED=false
+      - SMART_AUTO_SAVE=false
       - OLLAMA_URL=http://host.docker.internal:11434/api/generate # Hướng tới Ollama chạy ở máy host
     ports:
       - "127.0.0.1:3457:3457"
