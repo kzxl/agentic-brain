@@ -43,11 +43,26 @@ const config = {
     name: process.env.DOMAIN_NAME || 'My Project',
     description: process.env.DOMAIN_DESCRIPTION || 'chuyên gia hệ thống phần mềm',
   },
-  backend: process.env.MEMORY_BACKEND || 'auto', // 'ame' | 'postgres' | 'auto'
+  backend: process.env.MEMORY_BACKEND || 'postgres', // 'ame' | 'postgres'
+  server: {
+    port: parseInt(process.env.SEMANTIC_PORT || '3457'),
+    host: process.env.BIND_HOST || '127.0.0.1',
+    apiToken: process.env.SEMANTIC_API_TOKEN || '',
+    proxyToken: process.env.PROXY_API_TOKEN || '',
+    maxBodyBytes: parseInt(process.env.MAX_BODY_BYTES || '1048576'),
+  },
   ame: {
+    enabled: process.env.AME_ENABLED === 'true',
+    write: process.env.AME_WRITE === 'true',
     pipeName: process.env.AME_PIPE || 'ame_pipe',
     defaultDb: process.env.AME_DB_PATH || path.join(__dirname, '..', 'data', 'semantic_brain.ame'),
-    cliPath: process.env.AME_CLI_PATH || 'E:\\15. Other\\AgentMemoryEngine\\dist\\lite\\AgentMemoryEngine.Cli.exe',
+    cliPath: process.env.AME_CLI_PATH || '',
+  },
+  useSignal: process.env.USE_SIGNAL === 'true',
+  retrieval: {
+    candidateK: parseInt(process.env.RETRIEVAL_CANDIDATE_K || '100'),
+    minSimilarity: parseFloat(process.env.RETRIEVAL_MIN_SIMILARITY || '0.38'),
+    forceIndex: process.env.RETRIEVAL_FORCE_INDEX !== 'false',
   },
   agentRoot: process.env.AGENT_ROOT || '',
 };

@@ -16,21 +16,22 @@ const { getProjectInfo, inferTechTags } = require('./project-helper');
 
 const textArg = process.argv.slice(2).find(a => !a.startsWith('--'));
 const fileArg = process.argv.find(a => a.startsWith('--file='));
+const jsonArg = process.argv.find(a => a.startsWith('--json='));
 
-if (!textArg && !fileArg) {
+if (!textArg && !fileArg && !jsonArg) {
   console.log(`
 Usage:
-  node E:\\Tools\\SemanticBrain\\tools\\auto-post-task.js "<tóm tắt bài học kỹ thuật>" [--tags=extra1,extra2] [--file=walkthrough.md] [--direct] [--dry-run]
-
-Example:
-  node E:\\Tools\\SemanticBrain\\tools\\auto-post-task.js "Triển khai WindowsNotificationBridge kết nối Action Center và phục hồi focus window"
+  node E:\\Tools\\SemanticBrain\\tools\\auto-post-task.js --file=atoms.json [--tags=extra1,extra2] [--direct] [--dry-run]
+  node E:\\Tools\\SemanticBrain\\tools\\auto-post-task.js --json='{"atoms":[...]}' [--tags=extra1,extra2]
+  node E:\\Tools\\SemanticBrain\\tools\\auto-post-task.js "Problem | Cause | Fix" --direct
 `);
   process.exit(1);
 }
 
-// 1. Resolve project info
+// 1. Resolve project info (CLI override wins)
 const projectInfo = getProjectInfo(process.cwd());
-const projectName = projectInfo.projectName;
+const PROJECT_OVERRIDE = process.argv.find(a => a.startsWith('--project='))?.split('=')[1]?.trim().toLowerCase();
+const projectName = PROJECT_OVERRIDE || projectInfo.projectName;
 
 // 2. Resolve & merge multi-dimensional tags (Domain + Technical)
 const customTagsArg = process.argv.find(a => a.startsWith('--tags='));
@@ -38,15 +39,18 @@ const customTags = customTagsArg ? customTagsArg.split('=')[1].split(',').map(t 
 
 const tagSet = new Set();
 
-// Add domain tag
-if (projectInfo.domain) {
-  tagSet.add(projectInfo.domain);
-} else {
-  tagSet.add('production'); // fallback domain
+// When the agent overrides the project, do not borrow domain/tech tags from
+// the current working directory (it may be a different repository).
+if (!PROJECT_OVERRIDE) {
+  if (projectInfo.domain) {
+    tagSet.add(projectInfo.domain);
+  } else {
+    tagSet.add('production'); // fallback domain
+  }
+  for (const t of inferTechTags(process.cwd())) tagSet.add(t);
 }
 
-// Add inferred tech tags
-for (const t of inferTechTags(process.cwd())) tagSet.add(t);
+// Add explicit tags
 for (const t of customTags) tagSet.add(t);
 
 // Ensure at least 1 technical tag

@@ -41,9 +41,11 @@ async function run() {
 
   const result = await pool.query(
     `UPDATE agent_qa_cache 
-     SET useful_count = useful_count + 1 
+     SET useful_count = useful_count + 1,
+         use_count = use_count + 1,
+         last_used_at = NOW()
      WHERE id = $1 
-     RETURNING id, question, useful_count, hit_count`,
+     RETURNING id, question, useful_count, use_count, hit_count`,
     [targetId]
   );
 
@@ -51,7 +53,7 @@ async function run() {
     console.log(`[ERROR] QA #${targetId} not found`);
   } else {
     const r = result.rows[0];
-    console.log(`[✅ USEFUL] #${r.id} (useful: ${r.useful_count}, hits: ${r.hit_count})`);
+    console.log(`[✅ USEFUL] #${r.id} (useful: ${r.useful_count}, use_count: ${r.use_count}, hits: ${r.hit_count})`);
     console.log(`  Q: ${r.question.substring(0, 80)}`);
   }
 

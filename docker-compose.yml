@@ -5,10 +5,10 @@ services:
     image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: mysecretpassword
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mysecretpassword}
       POSTGRES_DB: agent_registry
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
@@ -19,16 +19,27 @@ services:
       - SEMANTIC_DB_HOST=semantic-db
       - SEMANTIC_DB_PORT=5432
       - SEMANTIC_DB_USER=postgres
-      - SEMANTIC_DB_PASS=mysecretpassword
+      - SEMANTIC_DB_PASS=${POSTGRES_PASSWORD:-mysecretpassword}
       - SEMANTIC_DB_NAME=agent_registry
+      - BIND_HOST=0.0.0.0
+      - SEMANTIC_API_TOKEN=${SEMANTIC_API_TOKEN:-local-dev-token}
+      - MAX_BODY_BYTES=1048576
+      - MEMORY_BACKEND=postgres
+      - AME_ENABLED=false
+      - AME_WRITE=false
       - OLLAMA_URL=http://host.docker.internal:11434/api/generate # Hướng tới Ollama chạy ở máy host
     ports:
-      - "3457:3457"
+      - "127.0.0.1:3457:3457"
     depends_on:
       - semantic-db
     command: sh -c "sleep 5 && node maintenance/setup.js && npm run start"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3457/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   openai-proxy:
@@ -37,13 +48,17 @@ services:
       - SEMANTIC_DB_HOST=semantic-db
       - SEMANTIC_DB_PORT=5432
       - SEMANTIC_DB_USER=postgres
-      - SEMANTIC_DB_PASS=mysecretpassword
+      - SEMANTIC_DB_PASS=${POSTGRES_PASSWORD:-mysecretpassword}
       - SEMANTIC_DB_NAME=agent_registry
+      - BIND_HOST=0.0.0.0
+      - SEMANTIC_API_TOKEN=${SEMANTIC_API_TOKEN:-local-dev-token}
+      - PROXY_API_TOKEN=${PROXY_API_TOKEN:-local-dev-token}
       - PROXY_PORT=3458
       - SEMANTIC_PORT=3457
+      - MAX_BODY_BYTES=1048576
       - OLLAMA_URL=http://host.docker.internal:11434/api/generate
     ports:
-      - "3458:3458"
+      - "127.0.0.1:3458:3458"
     depends_on:
       - semantic-brain
     command: npm run proxy

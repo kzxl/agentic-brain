@@ -1,9 +1,11 @@
-FROM node:20-alpine
+FROM node:20-bookworm-slim
 WORKDIR /app
 
-# Cài đặt dependencies
+ENV NODE_ENV=production
+
+# Cài đặt dependencies (reproducible)
 COPY package*.json ./
-RUN npm install
+RUN npm ci --omit=dev
 
 # Copy mã nguồn
 COPY . .

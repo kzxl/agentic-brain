@@ -1,0 +1,50 @@
+{
+  "generatedAt": "2026-10-30T07:03:11.077Z",
+  "rows": 50000,
+  "dims": 1024,
+  "candidateK": 100,
+  "limit": 5,
+  "iterations": 20,
+  "insertMs": 12922,
+  "indexMs": 396926,
+  "latency": {
+    "min": 500.38,
+    "p50": 521.94,
+    "p95": 558.31,
+    "max": 558.31,
+    "mean": 522.84
+  },
+  "forcedLatency": {
+    "p50": 56.77,
+    "p95": 63.69,
+    "mean": 56.67
+  },
+  "planLines": [
+    "Limit  (cost=2985.57..2985.58 rows=1 width=289) (actual time=725.254..725.261 rows=5 loops=1)",
+    "        ->  Subquery Scan on ranked  (cost=2985.47..2985.56 rows=1 width=289) (actual time=724.845..725.189 rows=100 loops=1)",
+    "                                                              ->  Subquery Scan on ann  (cost=2917.01..2917.03 rows=1 width=4) (actual time=720.395..720.428 rows=100 loops=1)",
+    "                                                                    ->  Limit  (cost=2917.01..2917.02 rows=1 width=12) (actual time=720.393..720.414 rows=100 loops=1)",
+    "                                                                                ->  Seq Scan on agent_qa_cache_bench50k agent_qa_cache_bench50k_1  (cost=0.00..2917.00 rows=1 width=12) (actual time=0.044..692.674 rows=50000 loops=1)",
+    "                                                              ->  Subquery Scan on fts  (cost=51.70..51.72 rows=1 width=4) (actual time=0.048..0.049 rows=0 loops=1)",
+    "                                                                    ->  Limit  (cost=51.70..51.71 rows=1 width=8) (actual time=0.047..0.048 rows=0 loops=1)",
+    "                                                                                ->  Bitmap Heap Scan on agent_qa_cache_bench50k agent_qa_cache_bench50k_2  (cost=47.66..51.69 rows=1 width=8) (actual time=0.037..0.038 rows=0 loops=1)",
+    "                                                                                      ->  Bitmap Index Scan on bench_tsv  (cost=0.00..47.66 rows=1 width=0) (actual time=0.035..0.035 rows=0 loops=1)",
+    "                                            ->  Index Scan using agent_qa_cache_bench50k_pkey on agent_qa_cache_bench50k  (cost=0.29..8.32 rows=1 width=305) (actual time=0.024..0.024 rows=1 loops=100)",
+    "Planning Time: 0.941 ms",
+    "Execution Time: 725.376 ms"
+  ],
+  "forcedPlanLines": [
+    "Limit  (cost=208365.56..208365.56 rows=1 width=289) (actual time=46.319..46.323 rows=5 loops=1)",
+    "        ->  Subquery Scan on ranked  (cost=208365.46..208365.55 rows=1 width=289) (actual time=3.492..3.647 rows=40 loops=1)",
+    "                                                              ->  Subquery Scan on ann  (cost=2540.48..208297.01 rows=1 width=4) (actual time=1.874..2.246 rows=40 loops=1)",
+    "                                                                    ->  Limit  (cost=2540.48..208297.00 rows=1 width=12) (actual time=1.868..2.234 rows=40 loops=1)",
+    "                                                                          ->  Index Scan using bench_hnsw on agent_qa_cache_bench50k agent_qa_cache_bench50k_1  (cost=2540.48..208297.00 rows=1 width=12) (actual time=1.856..2.217 rows=40 loops=1)",
+    "                                                              ->  Subquery Scan on fts  (cost=51.70..51.72 rows=1 width=4) (actual time=0.036..0.037 rows=0 loops=1)",
+    "                                                                    ->  Limit  (cost=51.70..51.71 rows=1 width=8) (actual time=0.035..0.036 rows=0 loops=1)",
+    "                                                                                ->  Bitmap Heap Scan on agent_qa_cache_bench50k agent_qa_cache_bench50k_2  (cost=47.66..51.69 rows=1 width=8) (actual time=0.023..0.023 rows=0 loops=1)",
+    "                                                                                      ->  Bitmap Index Scan on bench_tsv  (cost=0.00..47.66 rows=1 width=0) (actual time=0.020..0.020 rows=0 loops=1)",
+    "                                            ->  Index Scan using agent_qa_cache_bench50k_pkey on agent_qa_cache_bench50k  (cost=0.29..8.32 rows=1 width=305) (actual time=0.009..0.009 rows=1 loops=40)",
+    "Planning Time: 0.878 ms",
+    "Execution Time: 52.376 ms"
+  ]
+}

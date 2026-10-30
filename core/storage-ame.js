@@ -315,7 +315,7 @@ async function queryContext(taskDescription, options = {}) {
  */
 async function saveQA(question, answer, options = {}) {
   const project = options.project || null;
-  const dbPath = resolveProjectDb(project);
+  const dbPath = options.dbPath ? path.resolve(options.dbPath) : resolveProjectDb(project);
   ensureDbExists(dbPath);
 
   const payload = serializePayload({
@@ -323,13 +323,13 @@ async function saveQA(question, answer, options = {}) {
     answer_context: answer,
     tags: options.tags || [],
     project: project || 'global',
-    confidence_score: options.confidence || 1.0,
+    confidence_score: options.confidence !== undefined ? options.confidence : 1.0,
     source: options.source || 'auto'
   });
 
   const tier = options.tier || 'Episodic';
   const importance = options.importance || 80;
-  const confidence = options.confidence ? Math.round(options.confidence * 100) : 100;
+  const confidence = options.confidence !== undefined ? Math.round(options.confidence * 100) : 100;
 
   // 1. Try IPC
   try {

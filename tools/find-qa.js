@@ -7,27 +7,24 @@
  *
  * Usage: node tools/find-qa.js "<question>" [--raw] [--tags=domain:inv,tech:ua]
  */
-const { pool, embed, askLocal, callServer, streamServer, isServerUp, tokenize, qaRankingQuery, normalizeTags, storageAme, config } = require('../core');
-const { execFileSync } = require('child_process');
-const path = require('path');
+const { pool, embed, askLocal, callServer, streamServer, isServerUp, tokenize, qaRankingQuery, normalizeTags, storageAme, config, attachParents, queryRetrieval } = require('../core');
 
 const MODE = process.argv.includes('--raw') ? 'raw' : 'smart';
 const PROJECT = (() => {
   const arg = process.argv.find(a => a.startsWith('--project='));
   return arg ? arg.split('=')[1].trim().toLowerCase() : null;
 })();
+const ALL_PROJECTS = process.argv.includes('--all-projects');
+const WITH_PARENT = process.argv.includes('--with-parent');
 const TAGS = (() => {
   const arg = process.argv.find(a => a.startsWith('--tags='));
   const raw = arg ? arg.split('=')[1].split(',').map(t => t.trim()).filter(t => t) : [];
-  const normalized = normalizeTags(raw);
-  // Inject project tag nếu có
-  if (PROJECT && !normalized.includes(`project:${PROJECT}`)) normalized.push(`project:${PROJECT}`);
-  return normalized;
+  return normalizeTags(raw);
 })();
 
 async function findQA(question) {
   if (!question || question.trim().length === 0) {
-    console.log('Usage: node tools/find-qa.js "<Question>" [--raw] [--backend=ame|postgres]');
+    console.log('Usage: node tools/find-qa.js "<Question>" [--raw] [--backend=ame|postgres] [--project=erp] [--all-projects] [--with-parent]');
     process.exit(1);
   }
 
@@ -62,7 +59,10 @@ async function findQA(question) {
   if (await isServerUp()) {
     let isFirstToken = true;
     const tagsParam = TAGS.length > 0 ? `&tags=${encodeURIComponent(TAGS.join(','))}` : '';
-    const serverResult = await streamServer(`/find-qa?q=${encodeURIComponent(question)}&mode=${MODE}${tagsParam}&stream=true`, (token) => {
+    const projectParam = PROJECT ? `&project=${encodeURIComponent(PROJECT)}` : '';
+    const allProjectsParam = ALL_PROJECTS ? '&all_projects=true' : '';
+    const parentParam = WITH_PARENT ? '&include_parent=true' : '';
+    const serverResult = await streamServer(`/find-qa?q=${encodeURIComponent(question)}&mode=${MODE}${tagsParam}${projectParam}${allProjectsParam}${parentParam}&stream=true`, (token) => {
       if (isFirstToken) {
         console.log(`[QA SMART] (server: fast, stream: active)`);
         console.log(`Q: ${question}`);
@@ -81,6 +81,10 @@ async function findQA(question) {
         } else {
           console.log(); // newline
         }
+        if (serverResult.parent) {
+          console.log(`[PARENT #${serverResult.parent.id}] ${serverResult.parent.question}`);
+          console.log(serverResult.parent.answer_context);
+        }
         if (serverResult.source) console.log(`[via: ${serverResult.source}]`);
         process.exit(0);
       }
@@ -98,28 +102,22 @@ async function findQA(question) {
 
   try {
     const filterTags = TAGS.length > 0 ? TAGS : null;
-    const qq = qaRankingQuery({ limit: 3 });
-    const result = await pool.query(qq.text, qq.params(tokens, JSON.stringify(vec), filterTags));
+    const qq = qaRankingQuery({ limit: 3, project: PROJECT, allProjects: ALL_PROJECTS });
+    const result = await queryRetrieval(qq.text, qq.params(tokens, JSON.stringify(vec), filterTags, query, PROJECT));
     if (result.rows.length === 0) {
-      if (process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY) {
-        try {
-          const autoQaPath = path.join(__dirname, 'auto-qa.js');
-          execFileSync('node', [autoQaPath, question], { stdio: 'ignore' });
-          const findQaPath = path.join(__dirname, 'find-qa.js');
-          const out = execFileSync('node', [findQaPath, question, '--raw'], { encoding: 'utf-8' });
-          console.log(out.trim());
-        } catch (e) {
-          console.log(`[QA MISS] "${question}"`);
-        }
-        process.exit(0);
-      } else {
-        console.log(`[QA MISS] "${question}"`);
-        process.exit(0);
-      }
+      console.log(`[QA MISS] "${question}"`);
+      process.exit(0);
     }
 
-    const top = result.rows[0];
-    await pool.query('UPDATE agent_qa_cache SET hit_count = hit_count + 1 WHERE id = $1', [top.id]);
+    let top = result.rows[0];
+    if (WITH_PARENT && top.parent_id) {
+      const [enriched] = await attachParents([top]);
+      top = enriched;
+    }
+    await pool.query(
+      'UPDATE agent_qa_cache SET hit_count = hit_count + 1, retrieval_count = retrieval_count + 1, last_retrieved_at = NOW() WHERE id = $1',
+      [top.id]
+    );
 
     pool.query(
       'INSERT INTO agent_qa_querylog (query, top_result_id, score, tags, tokens_saved) VALUES ($1, $2, $3, $4, $5)',
@@ -130,6 +128,10 @@ async function findQA(question) {
       console.log(`[QA HIT] (score: ${(top.final_score*100).toFixed(0)}%, conf: ${top.confidence_score})`);
       console.log(`Q: ${top.question}`);
       console.log(`A: ${top.answer_context}`);
+      if (top.parent) {
+        console.log(`[PARENT #${top.parent.id}] ${top.parent.question}`);
+        console.log(top.parent.answer_context);
+      }
       process.exit(0);
     }
 

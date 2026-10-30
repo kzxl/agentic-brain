@@ -6,13 +6,21 @@
 const http = require('http');
 const config = require('./config');
 
-const PORT = parseInt(process.env.SEMANTIC_PORT || '3457');
+const PORT = parseInt(process.env.SEMANTIC_PORT || config.server?.port || '3457');
 const TIMEOUT = 500; // ms — nếu server không respond trong 500ms thì fallback
+
+function authHeaders(extra = {}) {
+  const headers = { 'Content-Type': 'application/json', ...extra };
+  if (config.server?.apiToken) {
+    headers.Authorization = `Bearer ${config.server.apiToken}`;
+  }
+  return headers;
+}
 
 /**
  * Gọi server endpoint, trả về JSON nếu thành công, null nếu server offline
  */
-function callServer(path, method = 'GET', body = null, timeoutMs = 60000) {
+function callServer(path, method = 'GET', body = null, timeoutMs = 60000, headers = {}) {
   return new Promise((resolve) => {
     const opts = {
       hostname: '127.0.0.1',
@@ -20,7 +28,7 @@ function callServer(path, method = 'GET', body = null, timeoutMs = 60000) {
       path,
       method,
       timeout: timeoutMs,
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(headers),
     };
 
     const req = http.request(opts, (res) => {
@@ -43,9 +51,9 @@ function callServer(path, method = 'GET', body = null, timeoutMs = 60000) {
 /**
  * Gọi server và đọc luồng stream (Server-Sent Events) dành cho AI sinh chữ
  */
-function streamServer(path, onToken) {
+function streamServer(path, onToken, headers = {}) {
   return new Promise((resolve) => {
-    http.get({ hostname: '127.0.0.1', port: PORT, path, timeout: 60000 }, (res) => {
+    http.get({ hostname: '127.0.0.1', port: PORT, path, timeout: 60000, headers: authHeaders(headers) }, (res) => {
       let buffer = '';
       res.on('data', chunk => {
         buffer += chunk.toString();

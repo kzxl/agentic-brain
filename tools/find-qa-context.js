@@ -9,7 +9,7 @@
  *   node tools/find-qa-context.js "<task description>" [--tags=ua,winforms] [--limit=5]
  */
 
-const { pool, embed, tokenize, qaRankingQuery, normalizeTags, inferTags, storageAme, config } = require('../core');
+const { pool, embed, tokenize, qaRankingQuery, normalizeTags, inferTags, storageAme, config, attachParents, queryRetrieval } = require('../core');
 const path = require('path');
 const fs = require('fs');
 const { execSync } = require('child_process');
@@ -17,11 +17,13 @@ const { execSync } = require('child_process');
 // Parse args
 const task = process.argv[2];
 const IS_FULL = process.argv.includes('--full');
+const WITH_PARENT = IS_FULL || process.argv.includes('--with-parent');
 const BACKEND_ARG = process.argv.find(a => a.startsWith('--backend='))?.split('=')[1]?.toLowerCase();
 const PROJECT = (() => {
   const arg = process.argv.find(a => a.startsWith('--project='));
   return arg ? arg.split('=')[1].trim().toLowerCase() : null;
 })();
+const ALL_PROJECTS = process.argv.includes('--all-projects');
 
 function inferTagsFromGit() {
   try {
@@ -64,13 +66,7 @@ const TAGS = (() => {
   
   // Combine all raw tags
   const combinedRaw = [...new Set([...raw, ...gitTags, ...textTags])];
-  const normalized = normalizeTags(combinedRaw);
-  
-  // Apply project filter if specified
-  if (PROJECT && !normalized.includes(`project:${PROJECT}`)) {
-    normalized.push(`project:${PROJECT}`);
-  }
-  return normalized;
+  return normalizeTags(combinedRaw);
 })();
 const LIMIT = (() => {
   const arg = process.argv.find(a => a.startsWith('--limit='));
@@ -125,14 +121,14 @@ async function resolveActiveBackend() {
 /**
  * Search DB với 1 query, return top rows
  */
-async function searchOne(question, tagsFilter, activeBackend) {
+async function searchOne(question, tagsFilter, activeBackend, project, allProjects) {
   if (activeBackend === 'ame') {
     try {
       return await storageAme.queryContext(question, {
         limit: 5,
         minSimilarity: MIN_SCORE,
         tags: tagsFilter,
-        project: PROJECT
+        project: allProjects ? null : project
       });
     } catch (e) {
       return [];
@@ -145,8 +141,16 @@ async function searchOne(question, tagsFilter, activeBackend) {
   const vec = await embed(query);
 
   const filterTags = tagsFilter.length > 0 ? tagsFilter : null;
-  const qq = qaRankingQuery({ limit: 5, minSimilarity: MIN_SCORE });
-  const result = await pool.query(qq.text, qq.params(tokens, JSON.stringify(vec), filterTags));
+  const qq = qaRankingQuery({
+    limit: 5,
+    minSimilarity: MIN_SCORE,
+    project,
+    allProjects,
+  });
+  const result = await queryRetrieval(
+    qq.text,
+    qq.params(tokens, JSON.stringify(vec), filterTags, query, project)
+  );
 
   return result.rows;
 }
@@ -158,6 +162,7 @@ async function findQAContext(taskDescription) {
   const activeBackend = await resolveActiveBackend();
   console.log(`[CONTEXT SWEEP] Task: "${taskDescription}"`);
   console.log(`[CONTEXT SWEEP] Backend: ${activeBackend === 'ame' ? '⚡ AME (Sub-millisecond Cognitive)' : '🐘 PostgreSQL'}`);
+  console.log(`[CONTEXT SWEEP] Scope: ${ALL_PROJECTS ? 'all projects (explicit)' : PROJECT ? `project:${PROJECT} + global` : 'global only'}`);
   console.log(`[CONTEXT SWEEP] Tags filter: ${TAGS.length > 0 ? TAGS.join(',') : 'none'}\n`);
 
   const queries = decomposeToQueries(taskDescription);
@@ -169,7 +174,7 @@ async function findQAContext(taskDescription) {
 
   for (const q of queries) {
     try {
-      const rows = await searchOne(q, TAGS, activeBackend);
+      const rows = await searchOne(q, TAGS, activeBackend, PROJECT, ALL_PROJECTS);
       rows.forEach((row, index) => {
         const rank = index + 1;
         const crossRrfAdd = 1.0 / (60.0 + rank);
@@ -200,13 +205,21 @@ async function findQAContext(taskDescription) {
 
   const collected = Array.from(seen.values());
   collected.sort((a, b) => b.cross_rrf_score - a.cross_rrf_score);
-  const top = collected.slice(0, LIMIT);
+  let top = collected.slice(0, LIMIT);
+
+  if (WITH_PARENT && top.some(r => r.parent_id)) {
+    top = await attachParents(top);
+  }
 
   const ids = top.map(r => r.id);
   if (ids.length > 0 && activeBackend === 'postgres') {
     try {
       await pool.query(
-        `UPDATE agent_qa_cache SET hit_count = hit_count + 1 WHERE id = ANY($1::int[])`,
+        `UPDATE agent_qa_cache
+         SET hit_count = hit_count + 1,
+             retrieval_count = retrieval_count + 1,
+             last_retrieved_at = NOW()
+         WHERE id = ANY($1::int[])`,
         [ids]
       );
     } catch {}
@@ -224,7 +237,9 @@ async function findQAContext(taskDescription) {
       const cleanAnswer = (row.answer_context || '').replace(/\r?\n+/g, ' ').trim();
       const preview = cleanAnswer.length > 140 ? cleanAnswer.substring(0, 137) + '...' : cleanAnswer;
 
-      console.log(`[#${row.id}] (${score}% match) [${tags}] ${row.question}`);
+      console.log(`[#${row.id}] (${score}% match) [${tags}]${row.scope ? ` [${row.scope}]` : ''} ${row.question}`);
+      if (row.parent_id) console.log(`      ↳ parent document #${row.parent_id}`);
+      if (row.parent) console.log(`      Parent: ${row.parent.question}`);
       console.log(`      └─ Gotcha/Fix: ${preview}`);
     });
     console.log(`\n💡 To view detailed root cause & code snippet for any entry, run: node brain.js view <id>`);
@@ -233,9 +248,13 @@ async function findQAContext(taskDescription) {
       const score = (row.max_db_score * 100).toFixed(0);
       const rrfDisplay = (row.cross_rrf_score * 100).toFixed(1);
       const tags = (row.tags || []).join(', ');
-      console.log(`--- [${i + 1}] QA #${row.id} | DB_Score: ${score}% | Cross_RRF: ${rrfDisplay} | Tags: ${tags} ---`);
+      console.log(`--- [${i + 1}] QA #${row.id} | DB_Score: ${score}% | Cross_RRF: ${rrfDisplay} | Scope: ${row.scope || '?'} | Tags: ${tags} ---`);
       console.log(`Q: ${row.question}`);
       console.log(`A: ${row.answer_context}`);
+      if (row.parent) {
+        console.log(`   [PARENT #${row.parent.id}] ${row.parent.question}`);
+        console.log(`   ${row.parent.answer_context}`);
+      }
       console.log(`   [matched via: ${row.matched_queries.map(q => `"${q}"`).join(', ')}]\n`);
     });
   }
@@ -248,7 +267,7 @@ async function findQAContext(taskDescription) {
 // Entry
 (async () => {
   if (!task) {
-    console.log('Usage: node tools/find-qa-context.js "<task description>" [--tags=ua,winforms] [--limit=8]');
+    console.log('Usage: node tools/find-qa-context.js "<task description>" [--tags=ua,winforms] [--limit=8] [--project=erp] [--all-projects]');
     process.exit(1);
   }
 

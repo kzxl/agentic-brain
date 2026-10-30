@@ -44,7 +44,7 @@ async function run() {
      SET confidence_score = GREATEST(confidence_score - 0.1, 0.3),
          updated_at = NOW()
      WHERE id = $1 
-     RETURNING id, question, confidence_score, hit_count, useful_count`,
+     RETURNING id, question, confidence_score, hit_count, useful_count, use_count`,
     [targetId]
   );
 
@@ -52,7 +52,7 @@ async function run() {
     console.log(`[ERROR] QA #${targetId} not found`);
   } else {
     const r = result.rows[0];
-    console.log(`[❌ UNHELPFUL] #${r.id} (conf: ${r.confidence_score}, hits: ${r.hit_count}, useful: ${r.useful_count})`);
+    console.log(`[❌ UNHELPFUL] #${r.id} (conf: ${r.confidence_score}, hits: ${r.hit_count}, useful: ${r.useful_count}, use_count: ${r.use_count})`);
     console.log(`  Q: ${r.question.substring(0, 80)}`);
     console.log(`  Confidence decayed by -0.1`);
   }

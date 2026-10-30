@@ -10,33 +10,67 @@
  */
 const http = require('http');
 const url = require('url');
-const { pool, embed, extractKeywords, askLocal, tokenize, qaRankingQuery, recipeRankingQuery, skillRankingQuery } = require('./core');
+const crypto = require('crypto');
+const { pool, embed, askLocal, tokenize, qaRankingQuery, recipeRankingQuery, skillRankingQuery, captureKnowledge, ingestText, attachParents, queryRetrieval } = require('./core');
 const config = require('./core/config');
 
-const PORT = parseInt(process.env.SEMANTIC_PORT || '3457');
+const PORT = config.server.port;
+const HOST = config.server.host;
+const MAX_BODY_BYTES = config.server.maxBodyBytes;
+const API_TOKEN = config.server.apiToken;
 
 // Domain-driven system prompt — lấy từ .env, không hardcode
 const DOMAIN_DESCRIPTION = config.domain.description;
 const AGENT_ROOT = config.agentRoot;
 
+const PUBLIC_PATHS = new Set(['/health', '/ready']);
+
+function safeEqual(a, b) {
+  const ba = Buffer.from(String(a));
+  const bb = Buffer.from(String(b));
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
+}
+
+function isAuthorized(req) {
+  if (!API_TOKEN) return true; // local-only mode; BIND_HOST defaults to 127.0.0.1
+  const header = req.headers.authorization || '';
+  const token = header.replace(/^Bearer\s+/i, '');
+  return safeEqual(token, API_TOKEN);
+}
+
 // ============================================================
 // Route handlers
 // ============================================================
 
-async function handleFindQA(query, mode, tags) {
+async function handleFindQA(query, mode, tags, project = null, allProjects = false, includeParent = false, resStream = null) {
   const tokens = tokenize(query);
   const vec = await embed(query);
   const filterTags = Array.isArray(tags) && tags.length > 0 ? tags : null;
 
-  const qq = qaRankingQuery({ limit: 3 });
-  const result = await pool.query(qq.text, qq.params(tokens, JSON.stringify(vec), filterTags));
+  const qq = qaRankingQuery({ limit: 3, project, allProjects });
+  const result = await queryRetrieval(
+    qq.text,
+    qq.params(tokens, JSON.stringify(vec), filterTags, query, project)
+  );
 
   if (result.rows.length === 0) {
     return { status: 'MISS', question: query };
   }
 
-  const top = result.rows[0];
-  await pool.query('UPDATE agent_qa_cache SET hit_count = hit_count + 1 WHERE id = $1', [top.id]);
+  let top = result.rows[0];
+  if (includeParent && top.parent_id) {
+    const [enriched] = await attachParents([top]);
+    top = enriched;
+  }
+  await pool.query(
+    `UPDATE agent_qa_cache
+     SET hit_count = hit_count + 1,
+         retrieval_count = retrieval_count + 1,
+         last_retrieved_at = NOW()
+     WHERE id = $1`,
+    [top.id]
+  );
 
   // Log query for analytics (fire-and-forget)
   pool.query(
@@ -49,6 +83,11 @@ async function handleFindQA(query, mode, tags) {
       status: 'HIT',
       score: +(top.final_score * 100).toFixed(0),
       confidence: top.confidence_score,
+      scope: top.scope,
+      project_id: top.project_id,
+      trust_level: top.trust_level,
+      parent_id: top.parent_id,
+      parent: top.parent || null,
       question: top.question,
       answer: top.answer_context,
     };
@@ -62,9 +101,8 @@ async function handleFindQA(query, mode, tags) {
   const prompt = `Dựa vào các kiến thức sau đây, trả lời câu hỏi một cách chính xác và ngắn gọn bằng tiếng Việt.\n\n=== KIẾN THỨC THAM KHẢO ===\n${contexts}\n\n=== CÂU HỎI ===\n${query}\n\n=== TRẢ LỜI ===`;
   const system = `Bạn là ${DOMAIN_DESCRIPTION}. Chỉ trả lời dựa trên kiến thức được cung cấp. Ngắn gọn, kỹ thuật.`;
 
-  if (arguments.length > 3 && arguments[3]) {
+  if (resStream) {
     // Streaming mode
-    const resStream = arguments[3];
     resStream.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -75,14 +113,6 @@ async function handleFindQA(query, mode, tags) {
     const finalAns = await askLocalStream(prompt, { system }, (token) => {
       resStream.write(`data: ${JSON.stringify({ token })}\n\n`);
     });
-
-    // Auto-save with quality gate
-    if (finalAns.text.length > 50 && top.final_score > 0.5) {
-      require('child_process').spawn('node', [
-        require('path').join(__dirname, 'tools', 'save-qa.js'),
-        query, finalAns.text, '--source=smart-rag', '--confidence=0.5'
-      ], { stdio: 'ignore', detached: true }).unref();
-    }
 
     resStream.write(`data: ${JSON.stringify({
       status: 'SMART',
@@ -98,14 +128,6 @@ async function handleFindQA(query, mode, tags) {
     return null; // Sent stream
   } else {
     const llmResult = await askLocal(prompt, { system });
-
-    // Auto-save with quality gate
-    if (llmResult.text.length > 50 && top.final_score > 0.5) {
-      require('child_process').spawn('node', [
-        require('path').join(__dirname, 'tools', 'save-qa.js'),
-        query, llmResult.text, '--source=smart-rag', '--confidence=0.5'
-      ], { stdio: 'ignore', detached: true }).unref();
-    }
 
     return {
       status: 'SMART',
@@ -164,36 +186,43 @@ async function handleFindSkill(intent, topN) {
 }
 
 async function handleSaveQA(question, answer, opts = {}) {
-  const searchText = `${question} ${answer}`.toLowerCase();
-  const vec = await embed(searchText);
-  const keywords = extractKeywords(searchText);
-
-  const existing = await pool.query(
-    'SELECT id, answer_context FROM agent_qa_cache WHERE question_hash = md5(lower($1))', [question]
-  );
-
-  if (existing.rows.length > 0) {
-    const old = existing.rows[0];
-    await pool.query(
-      'INSERT INTO agent_qa_history (qa_id, old_answer, new_answer, changed_by) VALUES ($1, $2, $3, $4)',
-      [old.id, old.answer_context, answer, opts.source || 'manual']
-    );
-    await pool.query(`
-      UPDATE agent_qa_cache
-      SET answer_context=$1, search_text=$2, keywords=$3, embedding=$4,
-          source=$5, category=$6, tags=$7, confidence_score=1.0, updated_at=NOW()
-      WHERE id=$8
-    `, [answer, searchText, keywords, JSON.stringify(vec), opts.source || 'manual',
-        opts.category || 'general', opts.tags || [], old.id]);
-    return { status: 'updated', id: old.id };
+  if (!question || !answer) {
+    const err = new Error('question and answer are required');
+    err.status = 400;
+    throw err;
   }
 
-  const result = await pool.query(`
-    INSERT INTO agent_qa_cache (question, answer_context, search_text, keywords, embedding, source, category, tags)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id
-  `, [question, answer, searchText, keywords, JSON.stringify(vec),
-      opts.source || 'manual', opts.category || 'general', opts.tags || []]);
-  return { status: 'saved', id: result.rows[0].id };
+  if (answer.length > 2000 && !opts.allow_long && !opts.allowLong) {
+    const err = new Error('answer exceeds 2000 characters; split into atomic lessons or pass allow_long=true');
+    err.status = 400;
+    throw err;
+  }
+
+  const tags = Array.isArray(opts.tags)
+    ? opts.tags
+    : (typeof opts.tags === 'string'
+        ? opts.tags.split(',').map(t => t.trim()).filter(Boolean)
+        : []);
+
+  return captureKnowledge({
+    question,
+    answer,
+    source: opts.source || 'api',
+    category: opts.category || 'general',
+    tags,
+    confidence: opts.confidence !== undefined ? opts.confidence : 0.5,
+    project: opts.project || null,
+    pinned: Boolean(opts.pinned),
+    scope: opts.scope || null,
+    trustLevel: opts.trust_level || opts.trustLevel || null,
+    sourceType: opts.source_type || opts.sourceType || null,
+    evidence: opts.evidence || [],
+    verifier: opts.verifier || null,
+    verifiedAt: opts.verified_at || opts.verifiedAt || null,
+    validFrom: opts.valid_from || opts.validFrom || null,
+    validTo: opts.valid_to || opts.validTo || null,
+    status: opts.status || null,
+  });
 }
 
 async function handleMarkRecipe(id, success) {
@@ -230,7 +259,7 @@ async function handleFindTags(tagsStr, mode) {
 // ============================================================
 // Find QA Deep (Iterative Reasoning with References)
 // ============================================================
-async function handleFindQADeep(question, tags, maxDepth = 3) {
+async function handleFindQADeep(question, tags, project = null, allProjects = false, maxDepth = 3) {
   const MAX_DEPTH = maxDepth;
   const visited = new Set();
 
@@ -262,14 +291,24 @@ async function handleFindQADeep(question, tags, maxDepth = 3) {
       const vec = await embed(q);
       const filterTags = Array.isArray(tags) && tags.length > 0 ? tags : null;
 
-      const qq = qaRankingQuery({ limit: 1 });
-      result = await pool.query(qq.text, qq.params(tokens, JSON.stringify(vec), filterTags));
+      const qq = qaRankingQuery({ limit: 1, project, allProjects });
+      result = await queryRetrieval(
+        qq.text,
+        qq.params(tokens, JSON.stringify(vec), filterTags, q, project)
+      );
     }
 
     if (result.rows.length === 0) return null;
 
     const qa = result.rows[0];
-    await pool.query('UPDATE agent_qa_cache SET hit_count = hit_count + 1 WHERE id = $1', [qa.id]);
+    await pool.query(
+      `UPDATE agent_qa_cache
+       SET hit_count = hit_count + 1,
+           retrieval_count = retrieval_count + 1,
+           last_retrieved_at = NOW()
+       WHERE id = $1`,
+      [qa.id]
+    );
 
     const refs = detectReferences(qa.answer_context);
     const expandedRefs = [];
@@ -338,19 +377,26 @@ const server = http.createServer(async (req, res) => {
   const parsed = url.parse(req.url, true);
   const q = parsed.query;
   const respond = (data, code = 200) => {
-    res.writeHead(code, { 'Content-Type': 'application/json' });
+    const headers = { 'Content-Type': 'application/json' };
+    if (code >= 400) headers.Connection = 'close';
+    res.writeHead(code, headers);
     res.end(JSON.stringify(data));
   };
 
   try {
+    if (!PUBLIC_PATHS.has(parsed.pathname) && !isAuthorized(req)) {
+      respond({ error: 'unauthorized' }, 401);
+      return;
+    }
+
     switch (parsed.pathname) {
 
       case '/health': {
         const stats = await pool.query(`
           SELECT
             (SELECT COUNT(*) FROM agent_qa_cache)::int as qa_total,
-            (SELECT COUNT(*) FROM agent_qa_cache WHERE hit_count > 0)::int as qa_used,
-            (SELECT SUM(hit_count) FROM agent_qa_cache)::int as qa_hits,
+            (SELECT COUNT(*) FROM agent_qa_cache WHERE COALESCE(retrieval_count, 0) > 0)::int as qa_used,
+            (SELECT SUM(COALESCE(retrieval_count, 0)) FROM agent_qa_cache)::int as qa_retrievals,
             (SELECT COUNT(*) FROM agent_recipes)::int as recipes,
             (SELECT COUNT(*) FROM agent_registry)::int as registry
         `);
@@ -363,15 +409,24 @@ const server = http.createServer(async (req, res) => {
         break;
       }
 
+      case '/ready': {
+        await pool.query('SELECT 1');
+        respond({ status: 'ready' });
+        break;
+      }
+
       case '/find-qa': {
         const qaQuery = (q.q || '').toLowerCase();
         const qaMode = q.mode || 'smart';
+        const qaProject = q.project || null;
+        const qaAll = q.all_projects === 'true';
+        const qaIncludeParent = q.include_parent === 'true';
         const qaTags = q.tags ? q.tags.split(',').map(t => t.trim()).filter(t => t) : null;
         if (q.stream === 'true') {
-          const resObj = await handleFindQA(qaQuery, qaMode, qaTags, res);
+          const resObj = await handleFindQA(qaQuery, qaMode, qaTags, qaProject, qaAll, qaIncludeParent, res);
           if (resObj) respond(resObj);
         } else {
-          respond(await handleFindQA(qaQuery, qaMode, qaTags));
+          respond(await handleFindQA(qaQuery, qaMode, qaTags, qaProject, qaAll, qaIncludeParent));
         }
         break;
       }
@@ -390,25 +445,57 @@ const server = http.createServer(async (req, res) => {
 
       case '/find-qa-deep': {
         const deepQuery = (q.q || '').toLowerCase();
+        const deepProject = q.project || null;
+        const deepAll = q.all_projects === 'true';
         const deepTags = q.tags ? q.tags.split(',').map(t => t.trim()).filter(t => t) : null;
         const maxDepth = parseInt(q.depth) || 3;
-        respond(await handleFindQADeep(deepQuery, deepTags, maxDepth));
+        respond(await handleFindQADeep(deepQuery, deepTags, deepProject, deepAll, maxDepth));
         break;
       }
 
       case '/save-qa':
         if (req.method !== 'POST') { respond({ error: 'POST only' }, 405); break; }
-        const body = await readBody(req);
+        const body = await readBody(req, MAX_BODY_BYTES);
         respond(await handleSaveQA(body.question, body.answer, body));
         break;
 
+      case '/ingest': {
+        if (req.method !== 'POST') { respond({ error: 'POST only' }, 405); break; }
+        const ingestBody = await readBody(req, MAX_BODY_BYTES);
+        if (!Array.isArray(ingestBody.atoms) || ingestBody.atoms.length === 0) {
+          respond({ error: 'atoms array is required; agent-side ingestion does not call an LLM' }, 400);
+          break;
+        }
+        const ingestTextBody = ingestBody.text
+          || ingestBody.atoms.map(a => `Q: ${a.question}\nA: ${a.answer}`).join('\n\n');
+        const result = await ingestText({
+          text: ingestTextBody,
+          atoms: ingestBody.atoms,
+          project: ingestBody.project || null,
+          scope: ingestBody.scope || null,
+          source: ingestBody.source || 'api',
+          sourceRef: ingestBody.source_ref || ingestBody.sourceRef || null,
+          tags: Array.isArray(ingestBody.tags) ? ingestBody.tags : [],
+          confidence: ingestBody.confidence !== undefined ? ingestBody.confidence : 0.6,
+          trustLevel: ingestBody.trust_level || ingestBody.trustLevel || null,
+          sourceType: ingestBody.source_type || ingestBody.sourceType || null,
+          verifier: ingestBody.verifier || null,
+          validFrom: ingestBody.valid_from || ingestBody.validFrom || null,
+          validTo: ingestBody.valid_to || ingestBody.validTo || null,
+          status: ingestBody.status || null,
+        });
+        respond(result);
+        break;
+      }
+
       case '/mark-recipe':
         if (req.method !== 'POST') { respond({ error: 'POST only' }, 405); break; }
-        const mbody = await readBody(req);
+        const mbody = await readBody(req, MAX_BODY_BYTES);
         respond(await handleMarkRecipe(mbody.id, mbody.success));
         break;
 
       case '/shutdown':
+        if (req.method !== 'POST') { respond({ error: 'POST only' }, 405); break; }
         respond({ status: 'shutting_down' });
         setTimeout(() => process.exit(0), 100);
         break;
@@ -417,15 +504,48 @@ const server = http.createServer(async (req, res) => {
         respond({ error: 'not_found' }, 404);
     }
   } catch (err) {
-    respond({ error: err.message }, 500);
+    respond({ error: err.message }, err.status || 500);
   }
 });
 
-function readBody(req) {
+function readBody(req, maxBytes = MAX_BODY_BYTES) {
   return new Promise((resolve, reject) => {
     let data = '';
-    req.on('data', c => data += c);
-    req.on('end', () => { try { resolve(JSON.parse(data)); } catch (e) { reject(e); } });
+    let size = 0;
+    let done = false;
+
+    req.on('data', c => {
+      if (done) return;
+      size += c.length;
+      if (size > maxBytes) {
+        done = true;
+        const err = new Error('payload too large');
+        err.status = 413;
+        req.pause();
+        reject(err);
+        return;
+      }
+      data += c;
+    });
+
+    req.on('end', () => {
+      if (done) return;
+      done = true;
+      try {
+        resolve(JSON.parse(data));
+      } catch {
+        const err = new Error('invalid json');
+        err.status = 400;
+        reject(err);
+      }
+    });
+
+    req.on('error', err => {
+      if (!done) {
+        done = true;
+        reject(err);
+      }
+    });
   });
 }
 
@@ -443,10 +563,14 @@ async function warmup() {
 }
 
 warmup().then(() => {
-  server.listen(PORT, () => {
-    console.log(`[+] Semantic Brain Server running on http://localhost:${PORT}`);
+  server.listen(PORT, HOST, () => {
+    if (!API_TOKEN && HOST !== '127.0.0.1' && HOST !== 'localhost') {
+      console.warn('[WARN] SEMANTIC_API_TOKEN is empty while binding to a non-local host.');
+    }
+    console.log(`[+] Semantic Brain Server running on http://${HOST}:${PORT}`);
+    console.log(`    Auth:      ${API_TOKEN ? 'enabled (Bearer)' : 'disabled (local-only)'}`);
     console.log(`    Endpoints: /find-qa, /find-qa-deep, /find-recipe, /find-skill, /find-tags, /save-qa, /mark-recipe`);
-    console.log(`    Health:    http://localhost:${PORT}/health`);
+    console.log(`    Health:    http://${HOST}:${PORT}/health  Ready: /ready`);
     console.log(`    Stop:      POST /shutdown or Ctrl+C`);
   });
 }).catch(err => {

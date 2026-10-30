@@ -1,0 +1,633 @@
+{
+  "generatedAt": "2026-10-30T06:55:54.306Z",
+  "commit": "eab82409be83e9f585a2b9ea1068d8c2c0913095",
+  "project": null,
+  "limit": 5,
+  "totalRecords": 3411,
+  "warmupMs": 27,
+  "queries": 20,
+  "latency": {
+    "min": 6.21,
+    "p50": 8.04,
+    "p95": 19.52,
+    "max": 19.52,
+    "mean": 8.62
+  },
+  "results": [
+    {
+      "query": "Universe Architecture UA là gì và cấu trúc thư mục chuẩn",
+      "latencyMs": 19.52,
+      "hits": [
+        {
+          "id": 1,
+          "score": 75,
+          "question": "Universe Architecture (UA) là gì và cấu trúc thư mục chuẩn ra sao?"
+        },
+        {
+          "id": 2,
+          "score": 39.4,
+          "question": "Vai trò của View, Controller, Service trong kiến trúc UA là gì?"
+        },
+        {
+          "id": 127,
+          "score": 38.9,
+          "question": "Quy trình refactor feature cũ sang UA conformance?"
+        },
+        {
+          "id": 152,
+          "score": 38.4,
+          "question": "4 tính chất cơ bản của OOP (Hướng đối tượng) là gì?"
+        },
+        {
+          "id": 35,
+          "score": 37.8,
+          "question": "Module Sales (Bán hàng) bao gồm những gì?"
+        }
+      ]
+    },
+    {
+      "query": "Cách phân tách Service Controller View trong WinForms",
+      "latencyMs": 8.9,
+      "hits": [
+        {
+          "id": 3,
+          "score": 40,
+          "question": "Nguyên tắc Thin View / Controller Delegation hoạt động thế nào?"
+        },
+        {
+          "id": 2,
+          "score": 39.4,
+          "question": "Vai trò của View, Controller, Service trong kiến trúc UA là gì?"
+        },
+        {
+          "id": 25,
+          "score": 38.9,
+          "question": "Permission và phân quyền trong MDS hoạt động ra sao?"
+        },
+        {
+          "id": 117,
+          "score": 38.4,
+          "question": "Cách xử lý transaction trong Service layer?"
+        },
+        {
+          "id": 129,
+          "score": 37.8,
+          "question": "Cách trích xuất business logic từ View sang Service?"
+        }
+      ]
+    },
+    {
+      "query": "Lỗi deadlock khi commit transaction trong service inventory",
+      "latencyMs": 7.88,
+      "hits": [
+        {
+          "id": 4328,
+          "score": 42.1,
+          "question": "Self-Review Confirmation Bias & Tacit Assumption Drift in AI Spec Writing"
+        },
+        {
+          "id": 145,
+          "score": 40,
+          "question": "Lỗi deadlock do .Result gọi async từ UI thread?"
+        },
+        {
+          "id": 117,
+          "score": 39.4,
+          "question": "Cách xử lý transaction trong Service layer?"
+        },
+        {
+          "id": 144,
+          "score": 38.9,
+          "question": "Cách debug async code trong WinForms?"
+        },
+        {
+          "id": 138,
+          "score": 38.4,
+          "question": "MaterialRequest (Yêu cầu vật tư) chạy thế nào?"
+        }
+      ]
+    },
+    {
+      "query": "BaseForm RunAfterShown pattern khởi tạo form",
+      "latencyMs": 10.7,
+      "hits": [
+        {
+          "id": 4,
+          "score": 41,
+          "question": "BaseForm và RunAfterShown pattern hoạt động như thế nào?"
+        },
+        {
+          "id": 5,
+          "score": 39.4,
+          "question": "Tại sao phải xoá this.Load += trong Designer.cs khi dùng BaseForm?"
+        },
+        {
+          "id": 127,
+          "score": 38.9,
+          "question": "Quy trình refactor feature cũ sang UA conformance?"
+        },
+        {
+          "id": 37,
+          "score": 38.4,
+          "question": "ShowUserControl extension hoạt động ra sao?"
+        },
+        {
+          "id": 171,
+          "score": 37.8,
+          "question": "Factory Pattern trong C# dùng thế nào?"
+        }
+      ]
+    },
+    {
+      "query": "BindingList DevExpress grid pattern",
+      "latencyMs": 7.46,
+      "hits": [
+        {
+          "id": 4328,
+          "score": 42.1,
+          "question": "Self-Review Confirmation Bias & Tacit Assumption Drift in AI Spec Writing"
+        },
+        {
+          "id": 29,
+          "score": 40,
+          "question": "DevExpress XtraReport tạo và bind như thế nào?"
+        },
+        {
+          "id": 4,
+          "score": 39.9,
+          "question": "BaseForm và RunAfterShown pattern hoạt động như thế nào?"
+        },
+        {
+          "id": 123,
+          "score": 39.4,
+          "question": "Cách tạo master-detail trong GridControl DevExpress?"
+        },
+        {
+          "id": 170,
+          "score": 38.4,
+          "question": "Pattern Matching trong C# là gì?"
+        }
+      ]
+    },
+    {
+      "query": "Cách check permission trong WinForms",
+      "latencyMs": 8.11,
+      "hits": [
+        {
+          "id": 4328,
+          "score": 43.6,
+          "question": "Self-Review Confirmation Bias & Tacit Assumption Drift in AI Spec Writing"
+        },
+        {
+          "id": 25,
+          "score": 40,
+          "question": "Permission và phân quyền trong MDS hoạt động ra sao?"
+        },
+        {
+          "id": 142,
+          "score": 39.4,
+          "question": "Cách tránh memory leak trong WinForms?"
+        },
+        {
+          "id": 126,
+          "score": 38.9,
+          "question": "Cách validate dữ liệu input trên DevExpress form?"
+        },
+        {
+          "id": 37,
+          "score": 38.4,
+          "question": "ShowUserControl extension hoạt động ra sao?"
+        }
+      ]
+    },
+    {
+      "query": "Khi nào tạo DTO thay vì truyền param rời",
+      "latencyMs": 8.7,
+      "hits": [
+        {
+          "id": 120,
+          "score": 40,
+          "question": "Cách dùng DTO (Data Transfer Object) trong MDS?"
+        },
+        {
+          "id": 29,
+          "score": 39.4,
+          "question": "DevExpress XtraReport tạo và bind như thế nào?"
+        },
+        {
+          "id": 3,
+          "score": 38.9,
+          "question": "Nguyên tắc Thin View / Controller Delegation hoạt động thế nào?"
+        },
+        {
+          "id": 117,
+          "score": 38.4,
+          "question": "Cách xử lý transaction trong Service layer?"
+        },
+        {
+          "id": 5,
+          "score": 37.8,
+          "question": "Tại sao phải xoá this.Load += trong Designer.cs khi dùng BaseForm?"
+        }
+      ]
+    },
+    {
+      "query": "Production module workflow và BOM",
+      "latencyMs": 9.99,
+      "hits": [
+        {
+          "id": 34,
+          "score": 40,
+          "question": "Module Production (Sản xuất) có cấu trúc ra sao?"
+        },
+        {
+          "id": 135,
+          "score": 39.4,
+          "question": "Quy trình nhập kho (StockIn) trong MDS?"
+        },
+        {
+          "id": 134,
+          "score": 38.9,
+          "question": "Quy trình xuất kho (StockOut) trong MDS?"
+        },
+        {
+          "id": 138,
+          "score": 38.4,
+          "question": "MaterialRequest (Yêu cầu vật tư) chạy thế nào?"
+        },
+        {
+          "id": 140,
+          "score": 37.8,
+          "question": "HandOver (Bàn giao) module xử lý gì?"
+        }
+      ]
+    },
+    {
+      "query": "Inspection QC approval workflow",
+      "latencyMs": 9.28,
+      "hits": [
+        {
+          "id": 4328,
+          "score": 49.7,
+          "question": "Self-Review Confirmation Bias & Tacit Assumption Drift in AI Spec Writing"
+        },
+        {
+          "id": 137,
+          "score": 40,
+          "question": "QC Inspection Request trong MDS chạy thế nào?"
+        },
+        {
+          "id": 135,
+          "score": 39.4,
+          "question": "Quy trình nhập kho (StockIn) trong MDS?"
+        },
+        {
+          "id": 127,
+          "score": 38.9,
+          "question": "Quy trình refactor feature cũ sang UA conformance?"
+        },
+        {
+          "id": 134,
+          "score": 38.4,
+          "question": "Quy trình xuất kho (StockOut) trong MDS?"
+        }
+      ]
+    },
+    {
+      "query": "Handover approval pattern",
+      "latencyMs": 9.62,
+      "hits": [
+        {
+          "id": 140,
+          "score": 40,
+          "question": "HandOver (Bàn giao) module xử lý gì?"
+        },
+        {
+          "id": 152,
+          "score": 39.4,
+          "question": "4 tính chất cơ bản của OOP (Hướng đối tượng) là gì?"
+        },
+        {
+          "id": 3,
+          "score": 38.9,
+          "question": "Nguyên tắc Thin View / Controller Delegation hoạt động thế nào?"
+        },
+        {
+          "id": 127,
+          "score": 38.4,
+          "question": "Quy trình refactor feature cũ sang UA conformance?"
+        },
+        {
+          "id": 137,
+          "score": 37.8,
+          "question": "QC Inspection Request trong MDS chạy thế nào?"
+        }
+      ]
+    },
+    {
+      "query": "DevExpress XtraReport binding",
+      "latencyMs": 6.87,
+      "hits": [
+        {
+          "id": 4328,
+          "score": 46.5,
+          "question": "Self-Review Confirmation Bias & Tacit Assumption Drift in AI Spec Writing"
+        },
+        {
+          "id": 29,
+          "score": 40,
+          "question": "DevExpress XtraReport tạo và bind như thế nào?"
+        },
+        {
+          "id": 123,
+          "score": 39.4,
+          "question": "Cách tạo master-detail trong GridControl DevExpress?"
+        },
+        {
+          "id": 126,
+          "score": 38.9,
+          "question": "Cách validate dữ liệu input trên DevExpress form?"
+        },
+        {
+          "id": 117,
+          "score": 38.4,
+          "question": "Cách xử lý transaction trong Service layer?"
+        }
+      ]
+    },
+    {
+      "query": "Async await tránh block UI thread",
+      "latencyMs": 7.86,
+      "hits": [
+        {
+          "id": 164,
+          "score": 75,
+          "question": "async/await trong C# hoạt động thế nào ở mức sâu?"
+        },
+        {
+          "id": 4328,
+          "score": 45.9,
+          "question": "Self-Review Confirmation Bias & Tacit Assumption Drift in AI Spec Writing"
+        },
+        {
+          "id": 144,
+          "score": 39.4,
+          "question": "Cách debug async code trong WinForms?"
+        },
+        {
+          "id": 145,
+          "score": 38.9,
+          "question": "Lỗi deadlock do .Result gọi async từ UI thread?"
+        },
+        {
+          "id": 4,
+          "score": 38.8,
+          "question": "BaseForm và RunAfterShown pattern hoạt động như thế nào?"
+        }
+      ]
+    },
+    {
+      "query": "EF6 DbContext và DbScope trong Application Service",
+      "latencyMs": 7.78,
+      "hits": [
+        {
+          "id": 4328,
+          "score": 46.5,
+          "question": "Self-Review Confirmation Bias & Tacit Assumption Drift in AI Spec Writing"
+        },
+        {
+          "id": 117,
+          "score": 40,
+          "question": "Cách xử lý transaction trong Service layer?"
+        },
+        {
+          "id": 115,
+          "score": 39.4,
+          "question": "Cách tạo Service mới cho một feature trong MDS?"
+        },
+        {
+          "id": 2,
+          "score": 38.9,
+          "question": "Vai trò của View, Controller, Service trong kiến trúc UA là gì?"
+        },
+        {
+          "id": 3,
+          "score": 38.4,
+          "question": "Nguyên tắc Thin View / Controller Delegation hoạt động thế nào?"
+        }
+      ]
+    },
+    {
+      "query": "Lỗi CS1503 CS1061 sau refactor",
+      "latencyMs": 6.4,
+      "hits": [
+        {
+          "id": 127,
+          "score": 40,
+          "question": "Quy trình refactor feature cũ sang UA conformance?"
+        },
+        {
+          "id": 5,
+          "score": 39.4,
+          "question": "Tại sao phải xoá this.Load += trong Designer.cs khi dùng BaseForm?"
+        },
+        {
+          "id": 171,
+          "score": 38.9,
+          "question": "Factory Pattern trong C# dùng thế nào?"
+        },
+        {
+          "id": 4,
+          "score": 38.8,
+          "question": "BaseForm và RunAfterShown pattern hoạt động như thế nào?"
+        },
+        {
+          "id": 33,
+          "score": 38.4,
+          "question": "Module TSS (Technical Support) gồm những phần nào?"
+        }
+      ]
+    },
+    {
+      "query": "Tối ưu hóa bộ nhớ và garbage collection",
+      "latencyMs": 8.04,
+      "hits": [
+        {
+          "id": 4328,
+          "score": 42.6,
+          "question": "Self-Review Confirmation Bias & Tacit Assumption Drift in AI Spec Writing"
+        },
+        {
+          "id": 142,
+          "score": 40,
+          "question": "Cách tránh memory leak trong WinForms?"
+        },
+        {
+          "id": 138,
+          "score": 39.4,
+          "question": "MaterialRequest (Yêu cầu vật tư) chạy thế nào?"
+        },
+        {
+          "id": 152,
+          "score": 38.9,
+          "question": "4 tính chất cơ bản của OOP (Hướng đối tượng) là gì?"
+        },
+        {
+          "id": 31,
+          "score": 38.4,
+          "question": "Bảng agent_qa_cache dùng để làm gì và khác gì agent_recipes?"
+        }
+      ]
+    },
+    {
+      "query": "Schema migration an toàn cho bảng lớn",
+      "latencyMs": 7.05,
+      "hits": [
+        {
+          "id": 4328,
+          "score": 42.6,
+          "question": "Self-Review Confirmation Bias & Tacit Assumption Drift in AI Spec Writing"
+        },
+        {
+          "id": 4,
+          "score": 41,
+          "question": "BaseForm và RunAfterShown pattern hoạt động như thế nào?"
+        },
+        {
+          "id": 148,
+          "score": 39.4,
+          "question": "Cách quản lý multi-database trong MDS?"
+        },
+        {
+          "id": 136,
+          "score": 38.9,
+          "question": "Barcode generation logic trong MDS hoạt động ra sao?"
+        },
+        {
+          "id": 17,
+          "score": 38.4,
+          "question": "Quy tắc đặt tên biến, method, class trong MDS là gì?"
+        }
+      ]
+    },
+    {
+      "query": "Retrieval precision và hybrid search",
+      "latencyMs": 6.51,
+      "hits": [
+        {
+          "id": 4328,
+          "score": 52.7,
+          "question": "Self-Review Confirmation Bias & Tacit Assumption Drift in AI Spec Writing"
+        },
+        {
+          "id": 152,
+          "score": 40,
+          "question": "4 tính chất cơ bản của OOP (Hướng đối tượng) là gì?"
+        },
+        {
+          "id": 133,
+          "score": 38.9,
+          "question": "DbHelper và DataAccessHelper khác nhau thế nào?"
+        },
+        {
+          "id": 31,
+          "score": 38.4,
+          "question": "Bảng agent_qa_cache dùng để làm gì và khác gì agent_recipes?"
+        },
+        {
+          "id": 29,
+          "score": 37.8,
+          "question": "DevExpress XtraReport tạo và bind như thế nào?"
+        }
+      ]
+    },
+    {
+      "query": "Working memory và session checkpoint",
+      "latencyMs": 6.9,
+      "hits": [
+        {
+          "id": 144,
+          "score": 40,
+          "question": "Cách debug async code trong WinForms?"
+        },
+        {
+          "id": 164,
+          "score": 39.4,
+          "question": "async/await trong C# hoạt động thế nào ở mức sâu?"
+        },
+        {
+          "id": 4328,
+          "score": 39,
+          "question": "Self-Review Confirmation Bias & Tacit Assumption Drift in AI Spec Writing"
+        },
+        {
+          "id": 25,
+          "score": 38.9,
+          "question": "Permission và phân quyền trong MDS hoạt động ra sao?"
+        },
+        {
+          "id": 142,
+          "score": 38.4,
+          "question": "Cách tránh memory leak trong WinForms?"
+        }
+      ]
+    },
+    {
+      "query": "Knowledge provenance và trust level",
+      "latencyMs": 6.21,
+      "hits": [
+        {
+          "id": 4328,
+          "score": 53.5,
+          "question": "Self-Review Confirmation Bias & Tacit Assumption Drift in AI Spec Writing"
+        },
+        {
+          "id": 3,
+          "score": 39.4,
+          "question": "Nguyên tắc Thin View / Controller Delegation hoạt động thế nào?"
+        },
+        {
+          "id": 31,
+          "score": 38.9,
+          "question": "Bảng agent_qa_cache dùng để làm gì và khác gì agent_recipes?"
+        },
+        {
+          "id": 33,
+          "score": 38.4,
+          "question": "Module TSS (Technical Support) gồm những phần nào?"
+        }
+      ]
+    },
+    {
+      "query": "Làm thế nào để tránh trộn tri thức giữa các dự án",
+      "latencyMs": 8.69,
+      "hits": [
+        {
+          "id": 4328,
+          "score": 51.9,
+          "question": "Self-Review Confirmation Bias & Tacit Assumption Drift in AI Spec Writing"
+        },
+        {
+          "id": 182,
+          "score": 40,
+          "question": "Assembly, Namespace, Project trong .NET là gì?"
+        },
+        {
+          "id": 5,
+          "score": 39.4,
+          "question": "Tại sao phải xoá this.Load += trong Designer.cs khi dùng BaseForm?"
+        },
+        {
+          "id": 3,
+          "score": 38.4,
+          "question": "Nguyên tắc Thin View / Controller Delegation hoạt động thế nào?"
+        },
+        {
+          "id": 142,
+          "score": 37.8,
+          "question": "Cách tránh memory leak trong WinForms?"
+        }
+      ]
+    }
+  ]
+}

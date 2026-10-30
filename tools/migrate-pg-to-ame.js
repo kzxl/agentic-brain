@@ -24,7 +24,7 @@ async function migrate() {
   console.log(`📁 Target AME Container: ${targetDb}`);
 
   let query = `
-    SELECT id, question, answer_context, tags, confidence_score, useful_count, updated_at
+    SELECT id, question, answer_context, tags, confidence_score, hit_count, updated_at
     FROM agent_qa_cache
   `;
   const params = [];
