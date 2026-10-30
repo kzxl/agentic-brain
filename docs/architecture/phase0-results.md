@@ -14,6 +14,7 @@
 | PostgreSQL canonical, AME không ghi mặc định | ✅ |
 | Schema drift được xử lý bằng migration | ✅ |
 | Project isolation (tag interim) | ✅ |
+| Default read scope = global-only | ✅ |
 | Tách `retrieval_count` / `use_count` | ✅ |
 | Auth, bind localhost, body limit 1 MB | ✅ |
 | Bỏ confidence 1.0 mặc định | ✅ |
@@ -57,8 +58,11 @@
 ### 2.3. Project isolation
 
 - `qaRankingQuery` nhận `project` và thêm predicate:
-  `($5::text IS NULL OR $5::text = ANY(tags) OR 'project:global' = ANY(tags))`.
+  - có project: `(project = ANY(tags) OR 'project:global' = ANY(tags))`;
+  - không có project: **chỉ `'project:global' = ANY(tags)`**;
+  - `allProjects=true`: bỏ predicate project (admin/analytics).
 - `find-qa-context`, `find-qa`, `find-qa-deep`, `server` truyền project riêng; không trộn `project:*` vào tag OR.
+- `--all-projects` (CLI) và `all_projects=true` (HTTP) là opt-in rõ ràng cho cross-project.
 - Ghi global được gắn `project:global`; ghi project được gắn `project:<name>`.
 - Kết quả kiểm tra:
   - `project=semanticbrain` chỉ trả seed global, không trả `project:erp`.
@@ -149,7 +153,8 @@
 5. Proxy auto-harvest mặc định **tắt**.
 6. AME không còn được ghi mặc định.
 7. Query project trả cả bản ghi `project:global`; đây là fallback có chủ đích.
-8. Unique index `question_hash` toàn cục đã bị bỏ; dedup dựa vào writer. Phase 1 sẽ thay bằng `UNIQUE(project_id, question_hash)`.
+8. Query **không** có project chỉ trả `project:global`; cross-project phải dùng `--all-projects` / `all_projects=true`.
+9. Unique index `question_hash` toàn cục đã bị bỏ; dedup dựa vào writer. Phase 1 sẽ thay bằng `UNIQUE(project_id, question_hash)`.
 
 ---
 

@@ -177,6 +177,12 @@ WHERE NOT EXISTS (
 const qq = qaRankingQuery({ limit: 5, minSimilarity: MIN_SCORE, project: PROJECT });
 ```
 
+**Bước 1.5 — siết default (Phase 0.1, đã triển khai).**
+
+- Không truyền project → chỉ trả `project:global`.
+- Cross-project phải dùng `--all-projects` (CLI) hoặc `all_projects=true` (HTTP).
+- Tránh trường hợp client quên project lại thấy toàn bộ tri thức.
+
 **Bước 2 — chuẩn (Phase 1).**
 
 - Thêm `project_id TEXT NOT NULL`, `scope TEXT CHECK (scope IN ('project','global'))`.

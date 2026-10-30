@@ -27,6 +27,7 @@ Bộ tài liệu kiểm toán và thiết kế đích, lập ngày 2026-10-30 tr
 - PostgreSQL là canonical; AME không ghi mặc định.
 - Schema được quản lý bằng migration (`001`–`005`), không còn drift.
 - Project scope được enforce; 369 legacy record được gán `project:erp` + nhãn review.
+- Query không có project chỉ trả global; `--all-projects` là opt-in.
 - Auth Bearer, bind localhost, body limit 1 MB.
 - `retrieval_count` / `use_count` tách khỏi `hit_count`.
 - Baseline mới: p50 **340 ms**, p95 **377 ms** trên 3.408 bản ghi; ANN-first là Phase 2.

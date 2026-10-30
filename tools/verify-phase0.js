@@ -79,8 +79,18 @@ async function main() {
   check('legacy unscoped records flagged for review', assumedErp > 0, `${assumedErp} records`);
 
   const qq = qaRankingQuery({ limit: 3, project: 'phase0-check' });
-  check('ranking query has project predicate', qq.text.includes('$5::text = ANY(tags)'));
+  check('ranking query has project predicate',
+    qq.text.includes("('project:' || $5::text) = ANY(tags)"));
   check('ranking query params include project', qq.params([], '[]', null, 'q', 'phase0-check').length === 5);
+
+  const defaultQ = qaRankingQuery({ limit: 3 });
+  check('default scope is global-only',
+    defaultQ.text.includes("'project:global' = ANY(tags)") && !defaultQ.text.includes('$5::text'));
+  check('default params omit project', defaultQ.params([], '[]', null, 'q').length === 4);
+
+  const allQ = qaRankingQuery({ limit: 3, allProjects: true });
+  check('all-projects scope is explicit',
+    allQ.text.includes('AND TRUE') && allQ.params([], '[]', null, 'q').length === 4);
 
   const failed = results.filter(r => !r.ok);
   console.log(`\n[VERIFY] ${results.length - failed.length}/${results.length} checks passed`);

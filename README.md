@@ -116,6 +116,7 @@ npm run proxy
 - Request bodies are capped at 1 MB (`MAX_BODY_BYTES`).
 - Unsafe defaults are off: `AUTO_QA_ENABLED=false`, `PROXY_AUTO_HARVEST=false`, `AME_WRITE=false`.
 - PostgreSQL is the canonical store; AME is not written unless explicitly enabled.
+- Queries without a project scope return **only `project:global`**. Use `--all-projects` (CLI) or `all_projects=true` (HTTP) for explicit cross-project search.
 
 Verify the Phase 0 contract:
 
