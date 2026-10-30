@@ -85,8 +85,9 @@ async function main() {
 
   const defaultQ = qaRankingQuery({ limit: 3 });
   check('default scope is global-only',
-    defaultQ.text.includes("'project:global' = ANY(tags)") && !defaultQ.text.includes('$5::text'));
+    defaultQ.text.includes("scope = 'global'") && !defaultQ.text.includes('$5::text'));
   check('default params omit project', defaultQ.params([], '[]', null, 'q').length === 4);
+  check('documents excluded from atom retrieval', defaultQ.text.includes("COALESCE(chunk_type, 'atom') = 'atom'"));
 
   const allQ = qaRankingQuery({ limit: 3, allProjects: true });
   check('all-projects scope is explicit',

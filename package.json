@@ -21,6 +21,8 @@
     "migrate": "node migrations/run.js",
     "test": "node --test tests/",
     "verify:phase0": "node tools/verify-phase0.js",
+    "verify:phase1": "node tools/verify-phase1.js",
+    "review:scope": "node tools/review-scope.js",
     "baseline": "node tools/baseline.js",
     "export": "node maintenance/export.js",
     "import": "node maintenance/import.js"

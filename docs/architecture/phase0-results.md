@@ -1,5 +1,7 @@
 # Phase 0 — Kết quả triển khai
 
+> Đây là snapshot Phase 0. Sau Phase 1, `npm test` là 19/19 và `verify:phase0` là 31/31; xem [phase1-results.md](phase1-results.md).
+
 - **Ngày:** 2026-10-30
 - **Base commit:** `77927b4`
 - **Phạm vi:** ổn định dữ liệu, một nguồn sự thật, project isolation tạm thời, security mặc định, feedback counters, migration baseline.

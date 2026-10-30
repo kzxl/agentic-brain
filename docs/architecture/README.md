@@ -10,8 +10,19 @@ Bộ tài liệu kiểm toán và thiết kế đích, lập ngày 2026-10-30 tr
 | [target-architecture.md](target-architecture.md) | Kiến trúc đích, module boundary, API, storage, migration tăng dần, so sánh phương án | Cần biết "hệ thống sẽ trông thế nào" |
 | [remediation-plan.md](remediation-plan.md) | Cách xử lý từng sự cố: patch đề xuất, DDL, quick wins 3 ngày, nghiệm thu | Cần biết "sửa cái gì, sửa thế nào" |
 | [phase0-results.md](phase0-results.md) | Kết quả triển khai Phase 0, migration, kiểm chứng, baseline, rủi ro còn lại | Cần biết "đã làm gì và hiện trạng mới" |
+| [phase1-results.md](phase1-results.md) | Kết quả Phase 1: scope resolver, atomic ingestion, review queue | Cần biết "tri thức được phân loại và tách atom thế nào" |
 | [baseline.json](baseline.json) | Baseline 20 query: latency, top hits | So sánh sau Phase 2 |
 | [implementation-roadmap.md](implementation-roadmap.md) | 8 phase, backlog, test, risk, 4 tuần đầu | Cần biết "làm gì trước, tốn bao nhiêu" |
+
+## Phase 1 (đã triển khai)
+
+- `scope` / `scope_origin` / `scope_candidate` / `review_status` là cột thật.
+- Trigger DB suy scope cho các direct insert (seed/import/replay).
+- Scope deterministic; generic lesson trong project thành global candidate, cần review.
+- `auto-harvest` tách atom bằng LLM + validator; document cha + atom con.
+- Retrieval chỉ trả atom; document không lọt top-k.
+- `post-task --direct` bắt buộc format; `save-qa` chặn answer quá dài.
+- Chi tiết: [phase1-results.md](phase1-results.md).
 
 ## Baseline tóm tắt (snapshot trước Phase 0)
 

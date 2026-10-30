@@ -39,6 +39,13 @@ graph TD
 - Enforces durable 3-part engineering structure: `<Symptom/Problem> | <Root Cause> | <Solution & Invariants>`.
 - Supports `--pinned` to protect architectural invariants from automated lifecycle decay.
 
+### 2.1. Atomic Ingestion & Scope Resolution
+- Long session summaries are normalized into **atomic Q&A lessons**; each atom gets its own embedding and can be retrieved independently.
+- A parent `document` row keeps the original text; atoms link to it via `parent_id` / `source_ref`.
+- Scope resolution is deterministic: explicit `--scope` wins, project-specific identifiers stay project-scoped, generic lessons inside a project become **global candidates** for review.
+- `save-qa` rejects answers over 2000 characters unless `--allow-long`; `post-task --direct` requires `<problem> | <cause> | <fix>`.
+- Review candidates with `node tools/review-scope.js`; approve promotes to global, reject keeps project scope.
+
 ### 3. Semantic Deduplication & Reinforcement ($\ge 85\%$)
 - Compares new knowledge embeddings against existing entries within the same project domain.
 - Instead of creating duplicate records, matches $\ge 85\%$ similarity strengthen hit counts, update guidance, and archive previous answers into `agent_qa_history`.
@@ -114,7 +121,7 @@ npm run proxy
 - Set `SEMANTIC_API_TOKEN` to require `Authorization: Bearer <token>` on every route except `/health` and `/ready`.
 - Set `PROXY_API_TOKEN` for the OpenAI proxy.
 - Request bodies are capped at 1 MB (`MAX_BODY_BYTES`).
-- Unsafe defaults are off: `AUTO_QA_ENABLED=false`, `PROXY_AUTO_HARVEST=false`, `AME_WRITE=false`.
+- Unsafe defaults are off: `AUTO_QA_ENABLED=false`, `PROXY_AUTO_HARVEST=false`, `SMART_AUTO_SAVE=false`, `AME_WRITE=false`.
 - PostgreSQL is the canonical store; AME is not written unless explicitly enabled.
 - Queries without a project scope return **only `project:global`**. Use `--all-projects` (CLI) or `all_projects=true` (HTTP) for explicit cross-project search.
 
@@ -150,6 +157,17 @@ node tools/curate.js --dry-run
 
 # 6. Archive Stale: tag dormant, low-value records
 node tools/curate.js --mark-stale --stale-days=60
+
+# 7. Review global-scope candidates (generic lessons written inside a project)
+node tools/review-scope.js
+node tools/review-scope.js --approve=123
+node tools/review-scope.js --reject=124
+```
+
+`save-qa` accepts an explicit scope when needed:
+
+```bash
+node tools/save-qa.js "How should a generic service be structured?" "Separate contracts, application, and infrastructure." --scope=global
 ```
 
 ---

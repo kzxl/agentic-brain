@@ -15,14 +15,15 @@ test('Phase 0 defaults are safe', () => {
 
 test('ranking query enforces project scope', () => {
   const qq = qaRankingQuery({ limit: 3, project: 'demo' });
-  assert.match(qq.text, /\('project:' \|\| \$5::text\) = ANY\(tags\) OR 'project:global' = ANY\(tags\)/);
+  assert.match(qq.text, /\(\('project:' \|\| \$5::text\) = ANY\(tags\) OR scope = 'global'\)/);
+  assert.match(qq.text, /COALESCE\(chunk_type, 'atom'\) = 'atom'/);
   const params = qq.params(['a'], '[]', ['tech:ua'], 'query', 'demo');
   assert.deepEqual(params, ['[]', ['tech:ua'], 'query', 3, 'demo']);
 });
 
 test('missing project defaults to global-only', () => {
   const qq = qaRankingQuery({ limit: 3 });
-  assert.match(qq.text, /'project:global' = ANY\(tags\)/);
+  assert.match(qq.text, /scope = 'global'/);
   assert.doesNotMatch(qq.text, /\$5::text/);
   assert.equal(qq.params([], '[]', null, 'query').length, 4);
 });
