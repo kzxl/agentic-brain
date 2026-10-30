@@ -16,14 +16,14 @@ const { getProjectInfo, inferTechTags } = require('./project-helper');
 
 const textArg = process.argv.slice(2).find(a => !a.startsWith('--'));
 const fileArg = process.argv.find(a => a.startsWith('--file='));
+const jsonArg = process.argv.find(a => a.startsWith('--json='));
 
-if (!textArg && !fileArg) {
+if (!textArg && !fileArg && !jsonArg) {
   console.log(`
 Usage:
-  node E:\\Tools\\SemanticBrain\\tools\\auto-post-task.js "<tóm tắt bài học kỹ thuật>" [--tags=extra1,extra2] [--file=walkthrough.md] [--direct] [--dry-run]
-
-Example:
-  node E:\\Tools\\SemanticBrain\\tools\\auto-post-task.js "Triển khai WindowsNotificationBridge kết nối Action Center và phục hồi focus window"
+  node E:\\Tools\\SemanticBrain\\tools\\auto-post-task.js --file=atoms.json [--tags=extra1,extra2] [--direct] [--dry-run]
+  node E:\\Tools\\SemanticBrain\\tools\\auto-post-task.js --json='{"atoms":[...]}' [--tags=extra1,extra2]
+  node E:\\Tools\\SemanticBrain\\tools\\auto-post-task.js "Problem | Cause | Fix" --direct
 `);
   process.exit(1);
 }

@@ -3,15 +3,15 @@
  * post-task.js — One-shot Post-Task Pipeline
  *
  * Agent gọi 1 lần duy nhất sau task phức tạp.
- * Tự động: extract knowledge → save DB → (optional) mark recipe
+ * Agent cung cấp atoms; pipeline chỉ validate + save DB + health check.
  *
  * Usage:
- *   node tools/post-task.js "<tóm tắt task>" --tags=ua,inventory [--project=erp]
- *   node tools/post-task.js --file=walkthrough.md --tags=ua [--project=erp]
- *   node tools/post-task.js "<tóm tắt>" --tags=ua --dry-run
+ *   node tools/post-task.js --file=atoms.json --tags=ua,inventory [--project=erp]
+ *   node tools/post-task.js --json='{"atoms":[...]}' --tags=ua [--project=erp]
  *   node tools/post-task.js "<Câu hỏi>|<Câu trả lời>" --tags=ua --direct
- *     (--direct: bypass LLM, lưu thẳng — dùng khi agent đã tự tổng hợp nội dung)
+ *     (--direct: một atom dạng "problem | cause | fix", không gọi LLM)
  *
+ * Raw walkthrough text is rejected: local LLM extraction was removed.
  * Multi-tenant: --project=erp sẽ inject tag 'project:erp' để phân biệt nguồn dữ liệu
  */
 const { execFileSync } = require('child_process');
@@ -27,8 +27,11 @@ const FORCE = process.argv.includes('--force');
 // Parse args
 const TAGS = process.argv.find(a => a.startsWith('--tags='))?.split('=')[1] || '';
 const FILE_ARG = process.argv.find(a => a.startsWith('--file='))?.split('=')[1];
+const JSON_ARG = process.argv.find(a => a.startsWith('--json='))?.slice('--json='.length);
 const PROJECT_ARG = process.argv.find(a => a.startsWith('--project='))?.split('=')[1]?.toLowerCase() || '';
 const TEXT_ARG = process.argv[2];
+const JSON_FILE = Boolean(FILE_ARG && FILE_ARG.toLowerCase().endsWith('.json'));
+const HAS_JSON = JSON_ARG !== undefined || JSON_FILE;
 
 // Build full tags string (bao gồm project tag nếu có)
 const buildTagsArg = () => {
@@ -58,10 +61,12 @@ if (FILE_ARG) {
   inputText = TEXT_ARG;
 }
 
-if (!inputText || inputText.length < 30) {
-  console.log(`Usage: node tools/post-task.js "<tóm tắt task đã làm>" --tags=ua,inventory [--project=erp] [--pinned]`);
-  console.log(`       node tools/post-task.js --file=walkthrough.md --tags=ua [--project=erp]`);
-  console.log(`\nInput phải >= 30 ký tự.`);
+if (!HAS_JSON && (!inputText || inputText.length < 30)) {
+  console.log(`Usage: node tools/post-task.js --file=atoms.json --tags=ua,inventory [--project=erp]`);
+  console.log(`       node tools/post-task.js --json='{"atoms":[...]}' --tags=ua [--project=erp]`);
+  console.log(`       node tools/post-task.js "Problem | Cause | Fix" --direct --tags=ua [--project=erp]`);
+  console.log(`\nRaw walkthrough text is no longer analyzed by a local LLM.`);
+  console.log(`Provide atomic JSON atoms via --file/--json (or use --direct for one structured lesson).`);
   process.exit(1);
 }
 
@@ -102,16 +107,18 @@ function validateHarvestQuality(text, isDirect) {
   return { valid: true };
 }
 
-const qualityCheck = validateHarvestQuality(inputText, DIRECT);
-if (!qualityCheck.valid) {
-  if (FORCE) {
-    console.warn(`\n⚠️ [QUALITY GUARD WARNING] ${qualityCheck.reason} (--force active, proceeding anyway)`);
-  } else {
-    console.error(`\n❌ [HARVEST REJECTED BY QUALITY GUARD]`);
-    console.error(`   Reason: ${qualityCheck.reason}`);
-    console.error(`   👉 Harvest must capture durable architectural rules, gotchas, or root causes—not transient environment glitches.`);
-    console.error(`   👉 To override in exceptional cases, append --force.\n`);
-    process.exit(1);
+if (!HAS_JSON) {
+  const qualityCheck = validateHarvestQuality(inputText, DIRECT);
+  if (!qualityCheck.valid) {
+    if (FORCE) {
+      console.warn(`\n⚠️ [QUALITY GUARD WARNING] ${qualityCheck.reason} (--force active, proceeding anyway)`);
+    } else {
+      console.error(`\n❌ [HARVEST REJECTED BY QUALITY GUARD]`);
+      console.error(`   Reason: ${qualityCheck.reason}`);
+      console.error(`   👉 Harvest must capture durable architectural rules, gotchas, or root causes—not transient environment glitches.`);
+      console.error(`   👉 To override in exceptional cases, append --force.\n`);
+      process.exit(1);
+    }
   }
 }
 
@@ -121,14 +128,14 @@ console.log(`║  POST-TASK PIPELINE                           ║`);
 console.log(`║  ${DRY_RUN ? 'Mode: DRY-RUN' : 'Mode: ⚡ LIVE '}  Tags: ${(FULL_TAGS || 'auto').substring(0, 15).padEnd(15)}  ║`);
 console.log(`╚═══════════════════════════════════════════════╝${projectLabel}\n`);
 
-// Step 1: Auto-harvest (hoặc Direct Save)
-console.log(`── Step 1: ${DIRECT ? 'Direct Save (bypass LLM)' : 'Auto-Harvest Knowledge'} ──`);
+// Step 1: Agent-supplied atoms (hoặc Direct Save)
+console.log(`── Step 1: ${DIRECT ? 'Direct Save (structured atom)' : 'Agent-Supplied Atoms'} ──`);
 try {
   if (DIRECT) {
     const parts = inputText.split('|').map(p => p.trim()).filter(Boolean);
     if (parts.length < 2) {
       console.error('[HARVEST REJECTED] --direct requires "<problem> | <cause> | <fix>" or "<problem> | <solution>".');
-      console.error('                   Use the normal (LLM) harvest for long walkthroughs, or --file for atomic extraction.');
+      console.error('                   For multiple lessons, provide atomic JSON via --file=atoms.json.');
       process.exit(1);
     }
     const question = parts[0];
@@ -150,19 +157,27 @@ try {
       stdio: 'inherit',
       timeout: 30000
     });
-  } else {
-    const harvestArgs = [
-      path.join(TOOLS_DIR, 'auto-harvest.js'),
-      inputText,
-    ];
-    if (FULL_TAGS) harvestArgs.push(`--tags=${FULL_TAGS}`);
-    if (DRY_RUN) harvestArgs.push('--dry-run');
+  } else if (HAS_JSON) {
+    const ingestArgs = [path.join(TOOLS_DIR, 'ingest-knowledge.js')];
+    if (JSON_ARG !== undefined) ingestArgs.push(`--json=${JSON_ARG}`);
+    else ingestArgs.push(`--file=${FILE_ARG}`);
+    if (PROJECT_ARG) ingestArgs.push(`--project=${PROJECT_ARG}`);
+    if (FULL_TAGS) ingestArgs.push(`--tags=${FULL_TAGS}`);
+    if (DRY_RUN) ingestArgs.push('--dry-run');
+    ingestArgs.push('--source=agent-post-task');
 
-    execFileSync('node', harvestArgs, {
+    execFileSync('node', ingestArgs, {
       encoding: 'utf-8',
       stdio: 'inherit',
       timeout: 120000
     });
+  } else {
+    console.error('[HARVEST REJECTED] Local LLM extraction was removed.');
+    console.error('The agent must provide atomic JSON atoms:');
+    console.error('  node tools/ingest-knowledge.js --file=atoms.json --project=erp');
+    console.error('  node tools/post-task.js --file=atoms.json --project=erp');
+    console.error('Or use a single structured lesson: --direct "Problem | Cause | Fix".');
+    process.exit(1);
   }
 } catch (e) {
   console.error(`[HARVEST ERROR] ${e.message}`);

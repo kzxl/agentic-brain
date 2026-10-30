@@ -137,19 +137,25 @@ async function postTask(intent, stepsJson, success, summaryText) {
     return;
   }
 
-  // 1. Auto-harvest knowledge from summary
+  // 1. Agent-side harvest: summary must be atomic JSON.
   if (summaryText && summaryText.length > 50) {
     try {
-      console.log(`[SEMANTIC POST] Auto-harvesting knowledge...`);
-      const tags = detectTags(intent);
-      const harvestArgs = [
-        path.join(SEMANTIC_DIR, 'auto-harvest.js'),
-        summaryText,
-        `--tags=${tags.join(',')}`
-      ];
-      execFileSync('node', harvestArgs, { encoding: 'utf-8', stdio: 'inherit' });
+      const parsed = JSON.parse(summaryText);
+      const isAtoms = Array.isArray(parsed) || (parsed && Array.isArray(parsed.atoms));
+      if (!isAtoms) {
+        console.warn('[HARVEST WARN] Summary is not atomic JSON; skipping (local LLM extraction removed).');
+      } else {
+        console.log(`[SEMANTIC POST] Ingesting agent-provided atoms...`);
+        const tags = detectTags(intent);
+        const harvestArgs = [
+          path.join(SEMANTIC_DIR, 'ingest-knowledge.js'),
+          `--json=${summaryText}`,
+          `--tags=${tags.join(',')}`
+        ];
+        execFileSync('node', harvestArgs, { encoding: 'utf-8', stdio: 'inherit' });
+      }
     } catch (e) {
-      console.error(`[HARVEST WARN] ${e.message}`);
+      console.warn('[HARVEST WARN] Summary is not JSON atoms; skipping (local LLM extraction removed).');
     }
   }
 
@@ -267,14 +273,26 @@ function detectTags(intent) {
       const summary = SUMMARY || (SUMMARY_FILE ? require('fs').readFileSync(SUMMARY_FILE, 'utf-8') : null);
       await postTask(INTENT, STEPS, SUCCESS, summary);
     } else if (MODE === 'harvest') {
-      // Standalone harvest mode
+      // Standalone harvest mode: atomic JSON only.
       const summary = SUMMARY || (SUMMARY_FILE ? require('fs').readFileSync(SUMMARY_FILE, 'utf-8') : null);
       if (!summary) {
         console.error('[ERROR] --summary or --summary-file required for harvest mode');
         process.exit(1);
       }
+      let parsed;
+      try {
+        parsed = JSON.parse(summary);
+      } catch {
+        console.error('[ERROR] Harvest summary must be atomic JSON (local LLM extraction removed).');
+        console.error('        Use: node tools/ingest-knowledge.js --file=atoms.json');
+        process.exit(1);
+      }
+      if (!Array.isArray(parsed) && !(parsed && Array.isArray(parsed.atoms))) {
+        console.error('[ERROR] Harvest summary must contain an atoms array.');
+        process.exit(1);
+      }
       const tags = process.argv.find(a => a.startsWith('--tags='))?.split('=')[1];
-      const harvestArgs = [path.join(SEMANTIC_DIR, 'auto-harvest.js'), summary];
+      const harvestArgs = [path.join(SEMANTIC_DIR, 'ingest-knowledge.js'), `--json=${summary}`];
       if (tags) harvestArgs.push(`--tags=${tags}`);
       execFileSync('node', harvestArgs, { encoding: 'utf-8', stdio: 'inherit' });
     } else if (MODE === 'context') {
